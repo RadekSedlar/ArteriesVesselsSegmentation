@@ -163,6 +163,7 @@ if __name__ == "__main__":
     print("Start")
     for candidatePoint in candidatePoints:
         print("ITARETION")
+        print(f"BEFORE middle {middlePoint} dalsi {candidatePoint}")
         angleBetweenMiddleAndCandidate = angle_between_middle_and_candidate(middlePoint,candidatePoint)
         angleBetweenMiddleAndCandidate = quadrant_angle(middlePoint, swap_point_coordinates(candidatePoint), angleBetweenMiddleAndCandidate)
         print(f"Quadrant angle => {angleBetweenMiddleAndCandidate} rad => {math.degrees(angleBetweenMiddleAndCandidate)}")
@@ -175,6 +176,29 @@ if __name__ == "__main__":
         draw_orientation_line(image_with_circle, pointsOfOrientation, lineColor=(138,43,226))
         draw_orientation_line(image_with_circle, pointsFromMiddleToCandidate, lineColor=(98,255,88))
 
+    candidatePoint = candidatePoints[0]
+    angleBetweenMiddleAndCandidate = angle_between_middle_and_candidate(middlePoint,candidatePoint)
+    angleBetweenMiddleAndCandidate = quadrant_angle(middlePoint, swap_point_coordinates(candidatePoint), angleBetweenMiddleAndCandidate)
+    print(f"Quadrant angle => {angleBetweenMiddleAndCandidate} rad => {math.degrees(angleBetweenMiddleAndCandidate)}")
+    minLookingAngle = angleBetweenMiddleAndCandidate - math.pi/2
+    maxLookingAngle = angleBetweenMiddleAndCandidate + math.pi/2
+    print(f"minLookingAngle: {minLookingAngle}, maxLookingAngle: {maxLookingAngle}")
+    (orientation, lenghtOfConformity, pointsOfOrientation) = VesselOrientation.vessel_orientation(golden_truth, candidatePoint, minLookingAngle, maxLookingAngle)
+    currnetPoint = [candidatePoints[0][1], candidatePoints[0][0]]
+    print("SEEKING\n\n")
+    
+    for iteration in range(15):
+        print(f"BEFORE middle {currnetPoint} dalsi {pointsOfOrientation[2]}")
+        angleBetweenOldAndNew = angle_between_middle_and_candidate(currnetPoint,pointsOfOrientation[2])
+        angleBetweenOldAndNew = quadrant_angle(currnetPoint, swap_point_coordinates(pointsOfOrientation[2]), angleBetweenOldAndNew)
+        print(f"Quadrant angle => {angleBetweenMiddleAndCandidate} rad => {math.degrees(angleBetweenMiddleAndCandidate)}")
+        minLookingAngle = angleBetweenMiddleAndCandidate - math.pi/2
+        maxLookingAngle = angleBetweenMiddleAndCandidate + math.pi/2
+        print(f"minLookingAngle: {minLookingAngle}, maxLookingAngle: {maxLookingAngle}")
+        (orientation, lenghtOfConformity, pointsOfOrientation) = VesselOrientation.vessel_orientation(golden_truth, swap_point_coordinates(currnetPoint), minLookingAngle, maxLookingAngle)
+
+        image_with_circle[currnetPoint[1], currnetPoint[0]] = (255,0,0)
+        currnetPoint = [pointsOfOrientation[2][1], pointsOfOrientation[2][0]]
 
 
     cv2.imwrite(DataPaths.results_image_path("candidatePointsWithOrientations"), image_with_circle)
