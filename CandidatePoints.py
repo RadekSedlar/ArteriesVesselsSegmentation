@@ -125,8 +125,9 @@ def coordinate_difference(x1, x2):
 
 if __name__ == "__main__":
 
-    golden_truth = Main.read_gif_image(DataPaths.original_manual_image_path(1))
-    src = cv2.imread(DataPaths.original_image_path(1))
+    imageNumber = 2
+    golden_truth = Main.read_gif_image(DataPaths.original_manual_image_path(imageNumber))
+    src = cv2.imread(DataPaths.original_image_path(imageNumber))
     radius = 45
 
     B_channel, G_channel, R_channel = cv2.split(src)
