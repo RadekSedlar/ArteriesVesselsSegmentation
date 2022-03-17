@@ -114,10 +114,10 @@ if __name__ == "__main__":
     vesselProfile1 = VesselProfile(7, 0.9, "Profil-1", 14)
     vesselProfile2 = VesselProfile(7, 0.8, "Profil-2", 14)
     vesselProfile3 = VesselProfile(7, 0.7, "Profil-3", 14)
-    vesselProfile4 = VesselProfile(7, 0.6, "Profil-4", 14)
-    vesselProfile5 = VesselProfile(7, 0.5, "Profil-5", 14)
+    vesselProfile6 = VesselProfile(7, 1.1, "Profil-6", 14)
+    vesselProfile7 = VesselProfile(7, 1.3, "Profil-7", 14)
 
-    vesselProfiles = [vesselProfile1, vesselProfile2, vesselProfile3, vesselProfile4, vesselProfile5]
+    vesselProfiles = [vesselProfile1, vesselProfile6, vesselProfile7]
 
     biggestScore = 0
     biggestScoreName = ""

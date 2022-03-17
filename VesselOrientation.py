@@ -1,24 +1,31 @@
 from copy import deepcopy
 import math
+from turtle import distance
 import cv2
 import numpy as np;
 import Main
 
 def get_point_from_angle_and_distance(originalPoint, angle, distance):
-    newX = int(distance * math.cos(angle))
-    newY = int(distance * math.sin(angle))
+    newY = int(distance * math.cos(angle))
+    newX = int(distance * math.sin(angle))
     return [originalPoint[0] + newX, originalPoint[1] + newY]
 
 def get_points_on_line(originalPoint, angle, lenght):
-    #print("-+-+-+-+-+-+- get_points_on_line -+-+-+-+-+-+-")
     pointsOnLine = []
     for distance in range(lenght):
         pointsOnLine.append(get_point_from_angle_and_distance(originalPoint, angle, distance))
-    #for distance in range(lenght):
-    #    pointsOnLine.append(get_point_from_angle_and_distance(originalPoint, angle + math.pi, distance))
-    #print(f"returning {pointsOnLine}")
-    #print("-+-+-+-+-+-+- END OF get_points_on_line -+-+-+-+-+-+-")
     return pointsOnLine
+
+def get_max_points_on_line(groundTruth, originalPoint, angle):
+    vesselPointsOnLine = []
+    distanceFromOrigin = 0
+    while True:
+        nextPoint = get_point_from_angle_and_distance(originalPoint, angle, distanceFromOrigin)
+        if groundTruth[nextPoint[1]][nextPoint[0]] != 255:
+            break
+        vesselPointsOnLine.append(nextPoint)
+        distanceFromOrigin += 1
+    return vesselPointsOnLine
 
 
 def is_angle_in_range(angle, minAngle, maxAngle):
@@ -33,36 +40,18 @@ def is_angle_in_range(angle, minAngle, maxAngle):
     return False
 
 def vessel_orientation(groundTruth, originalPoint, minAngle, maxAngle):
-    # TODO pridat orientation range
     angleOriginal = math.pi / 12
     vesselOrientation = 0
     noOfMostSuitedPixels = 0
     pointsOfBestConformity = []
-    currentAngle = minAngle
-    #iteration = 1
-    #while currentAngle < maxAngle:
-    #    #print(f"Iteration number: {iteration}\n Current angle: {currentAngle} < {maxAngle}")
-    #    iteration += 1
-    #    pointsOnLine = get_points_on_line(originalPoint, currentAngle, 10)
-    #    suitedPixels = 0
-    #    for point in pointsOnLine:
-    #        if groundTruth[point[0]][point[1]] == 255:
-    #            suitedPixels += 1
-    #    if suitedPixels > noOfMostSuitedPixels:
-    #        noOfMostSuitedPixels = suitedPixels
-    #        pointsOfBestConformity = pointsOnLine
-    #        vesselOrientation = currentAngle
-    #    currentAngle = currentAngle + angleOriginal
+    currentAngle = math.pi / 12
     for angleMultiplyer in range(24):
         currentAngle = angleOriginal * angleMultiplyer
         if not is_angle_in_range(currentAngle, minAngle, maxAngle):
             continue
             
-        pointsOnLine = get_points_on_line(originalPoint, currentAngle, 10)
-        suitedPixels = 0
-        for point in pointsOnLine:
-            if groundTruth[point[0]][point[1]] == 255:
-                suitedPixels += 1
+        pointsOnLine = get_max_points_on_line(groundTruth, originalPoint, currentAngle)
+        suitedPixels = len(pointsOnLine)
         if suitedPixels > noOfMostSuitedPixels:
             noOfMostSuitedPixels = suitedPixels
             pointsOfBestConformity = pointsOnLine

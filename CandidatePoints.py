@@ -71,7 +71,7 @@ def find_middle_pixels_on_circle(groundTruth, circlePoints):
             middle_point = find_middle(vesselPoints)
             vesselInfo = skeletonize.get_middle_pixel(groundTruth, middle_point[0], middle_point[1])
             #print(f"Position {middle_point} is middle of the last vessel")
-            endPoints.append(vesselInfo.point)
+            endPoints.append(swap_point_coordinates(vesselInfo.point))
         else:
             #print(f"Position {circlePoints[currentPosition]} is not a vessel")
             currentPosition += 1
@@ -79,9 +79,9 @@ def find_middle_pixels_on_circle(groundTruth, circlePoints):
             
 def draw_orientation_line(imageForDrawing, pointsOfOrientation, lineColor=(0, 255, 0)):
     for linePoint in pointsOfOrientation:
-        imageForDrawing[linePoint[0]][linePoint[1]] = lineColor
+        imageForDrawing[linePoint[1]][linePoint[0]] = lineColor
     lastPoint = pointsOfOrientation[len(pointsOfOrientation) -1 ]
-    imageForDrawing[lastPoint[0]][lastPoint[1]] = (0, 255, 255)
+    imageForDrawing[lastPoint[1]][lastPoint[0]] = (0, 255, 255)
     
 
 def get_next_point(originalPoint, points):
@@ -92,13 +92,12 @@ def get_next_point(originalPoint, points):
             
 
 def draw_small_circle(iamgeForDrawing, point):
-    return cv2.circle(iamgeForDrawing, (point[1], point[0]), 0, (255, 0, 0), 2)
+    return cv2.circle(iamgeForDrawing, point, 0, (255, 0, 0), 2)
 
 def swap_point_coordinates(original):
     return [original[1],original[0]]
 
 def angle_between_middle_and_candidate(middlePoint, candidatePoint):
-    candidatePoint = swap_point_coordinates(candidatePoint)
     print(f"Middle of circle is: {middlePoint}, candidatePoint is: {candidatePoint}")
     x_diff = coordinate_difference(candidatePoint[0], middlePoint[0])
     y_diff = coordinate_difference(candidatePoint[1], middlePoint[1])
@@ -125,7 +124,7 @@ def coordinate_difference(x1, x2):
 
 if __name__ == "__main__":
 
-    imageNumber = 2
+    imageNumber = 1
     golden_truth = Main.read_gif_image(DataPaths.original_manual_image_path(imageNumber))
     src = cv2.imread(DataPaths.original_image_path(imageNumber))
     radius = 45
@@ -144,6 +143,8 @@ if __name__ == "__main__":
         print(f"for point {candidatePoint}: {(orientation, lenghtOfConformity, pointsOfOrientation)}")
         draw_orientation_line(image_with_circle, pointsOfOrientation)
     image_with_circle = draw_small_circle(image_with_circle, candidatePoints[3])
+    cv2.imshow("image_with_circle", image_with_circle)
+    cv2.waitKey(0)
     #VesselOrientation.get_point_from_angle_and_distance()
 
     nextPoint = [candidatePoints[3][0], candidatePoints[3][1]]
@@ -166,16 +167,21 @@ if __name__ == "__main__":
         print("ITARETION")
         print(f"BEFORE middle {middlePoint} dalsi {candidatePoint}")
         angleBetweenMiddleAndCandidate = angle_between_middle_and_candidate(middlePoint,candidatePoint)
-        angleBetweenMiddleAndCandidate = quadrant_angle(middlePoint, swap_point_coordinates(candidatePoint), angleBetweenMiddleAndCandidate)
+        angleBetweenMiddleAndCandidate = quadrant_angle(middlePoint, candidatePoint, angleBetweenMiddleAndCandidate)
         print(f"Quadrant angle => {angleBetweenMiddleAndCandidate} rad => {math.degrees(angleBetweenMiddleAndCandidate)}")
         minLookingAngle = angleBetweenMiddleAndCandidate - math.pi/2
         maxLookingAngle = angleBetweenMiddleAndCandidate + math.pi/2
         print(f"minLookingAngle: {minLookingAngle}, maxLookingAngle: {maxLookingAngle}")
         (orientation, lenghtOfConformity, pointsOfOrientation) = VesselOrientation.vessel_orientation(golden_truth, candidatePoint, minLookingAngle, maxLookingAngle)
         print(f"for point {candidatePoint}: {(orientation, lenghtOfConformity, pointsOfOrientation)}")
-        pointsFromMiddleToCandidate = VesselOrientation.get_points_on_line(swap_point_coordinates(middlePoint), angleBetweenMiddleAndCandidate, radius)
+        pointsFromMiddleToCandidate = VesselOrientation.get_points_on_line(middlePoint, angleBetweenMiddleAndCandidate, radius)
         draw_orientation_line(image_with_circle, pointsOfOrientation, lineColor=(138,43,226))
         draw_orientation_line(image_with_circle, pointsFromMiddleToCandidate, lineColor=(98,255,88))
+    
+    cv2.imshow("image_with_circle", image_with_circle)
+    cv2.waitKey(0)
+    cv2.imwrite(DataPaths.results_image_path("candidatePointsWithOrientations"), image_with_circle)
+    exit()
 
     candidatePoint = candidatePoints[0]
     angleBetweenMiddleAndCandidate = angle_between_middle_and_candidate(middlePoint,candidatePoint)
