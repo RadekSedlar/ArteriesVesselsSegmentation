@@ -12,12 +12,12 @@ def invert_profile(profile):
         listToReturn.append(item * (-1))
     return listToReturn
 
-def read_mask_and_erode_it(imageNumber=1):
+def read_mask_and_erode_it(imageNumber=1, erodeIteration=3):
     mask = Main.read_gif_image(DataPaths.original_image_mask_path(numberOfImage=imageNumber))
     # create kernel for ongoing erosion
     kernel_erosion = np.ones((5,5),np.uint8)
     # eroding mask
-    mask = cv2.erode(mask,kernel_erosion,iterations = 3)
+    mask = cv2.erode(mask,kernel_erosion,iterations = erodeIteration)
     return mask
 
 def preprocessing_source_image(imageNumber=1, claheKernelSize=10):
@@ -46,67 +46,6 @@ def apply_matched_filtering_on_preprocessed_image(preprocessedImage, profile, ma
     thresh = cv2.bitwise_or(thresh, thresh, mask=mask)
     return thresh
 
-def measure_profile(profile, showProgress=False, claheKernelSize=10, threshold_limit=5, imageNumber=1):
-    """ Measures efficiency of profile
-
-    @type profile: [float32]
-    @param profile: array of float32 representing gaussian profile of vessels
-    @type showProgress: bool
-    @param showProgress: turning info ON/OFF
-    @type claheKernelSize: int
-    @param claheKernelSize: size of kernel used for CLAHE equalization
-    @type threshold_limit: int
-    @param threshold_limit: limit differentiating vessel from background
-    @type imageNumber: int
-    @param imageNumber: number of image on which is measuring performed
-
-    @rtype: ([uint8],int)
-    @returns: Thresholded vessel image and score of measured profile"""
-
-    mask = Main.read_gif_image(DataPaths.original_image_mask_path(numberOfImage=imageNumber))
-    src = cv2.imread(DataPaths.original_image_path(numberOfImage=imageNumber))
-    _, G_channel, _ = cv2.split(src)
-
-
-    G_channel_inverted = cv2.bitwise_not(G_channel)
-
-
-    kernel_erosion = np.ones((5,5),np.uint8)
-    mask = cv2.erode(mask,kernel_erosion,iterations = 3)
-
-
-    if showProgress:
-        cv2.imshow("inver", G_channel_inverted)
-    invert_top__hat_rect = cv2.morphologyEx(G_channel_inverted, cv2.MORPH_TOPHAT, cv2.getStructuringElement(cv2.MORPH_RECT,(11,11)))
-    if showProgress:
-        cv2.imshow("inver RECT", invert_top__hat_rect)
-    
-    clahe = cv2.createCLAHE(clipLimit=3, tileGridSize=(claheKernelSize, claheKernelSize))
-
-    invert_top__hat_rect_clahe = clahe.apply(invert_top__hat_rect)
-
-    if showProgress:
-        cv2.imshow("inver RECT Clahe", invert_top__hat_rect_clahe)
-    kernelFromProfile = Main.create_kernel_from_profile(profile)
-    result, thresh = Main.apply_kernel_on_image_in_angles(invert_top__hat_rect_clahe, kernelFromProfile,show_steps=False, threshold_limit = threshold_limit)
-    result = cv2.bitwise_or(result, result, mask=mask)
-    thresh = cv2.bitwise_or(thresh, thresh, mask=mask)
-    if showProgress:
-        cv2.imshow("kernel result", result)
-        cv2.imshow("kernel result thresholded", thresh)
-
-    manualy_separated = Main.read_gif_image(DataPaths.original_manual_image_path(numberOfImage=imageNumber))
-    if showProgress:
-        cv2.imshow("manual", manualy_separated)
-
-    imageScore = ImageScore.ImageScore(thresh, manualy_separated, mask)
-    imageScore.compute_statistics()
-    imageScore.print_score()
-
-    if showProgress:
-        cv2.waitKey(0)
-    return (thresh, imageScore.overallScore)
-
 
 if __name__ == "__main__":
 
@@ -126,6 +65,7 @@ if __name__ == "__main__":
     imageNumber = 1
     mask = read_mask_and_erode_it(imageNumber)
     preprocessedImage = preprocessing_source_image(imageNumber=imageNumber)
+    cv2.imwrite(DataPaths.results_image_path(f"Preprocessed_{imageNumber}"), preprocessedImage)
     manualy_separated = Main.read_gif_image(DataPaths.original_manual_image_path(numberOfImage=imageNumber))
     for vesselProfilePrimary in vesselProfiles:
         for primaryThreshold in range(2,6):
