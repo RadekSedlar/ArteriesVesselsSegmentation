@@ -12,6 +12,19 @@ def remove_duplicate_coordinates(originalList):
 
 
 def listOfCoordinates(radius, x_of_middle=0, y_of_middle=0):
+    """ Finds all points on circle
+
+    @type radius: uint
+    @param radius: radius of desired circle
+    @type x_of_middle: int
+    @param x_of_middle: x coordinate of middle point
+    @type y_of_middle: int
+    @param y_of_middle: y coordinate of middle point
+   
+    
+    @rtype: [[uint8]]
+    @returns: list of python image coordinates
+    """
     y_coordinate = radius
     circle_coordinates = []
     # find all x for all y coordinates

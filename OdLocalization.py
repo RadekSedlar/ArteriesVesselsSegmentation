@@ -26,7 +26,7 @@ def histogram_threshold(histogram, five_percent):
 def image_od_localization(grayScaleImage):
     kernel = np.ones((51,51), dtype=np.int32)
     circleRadius = 25.0
-    middlePoint = (26,26)
+    middlePoint = (25,25)
     
     for x in range(51):
         for y in range(51):
