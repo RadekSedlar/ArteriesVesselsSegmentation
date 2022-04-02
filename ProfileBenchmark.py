@@ -22,18 +22,21 @@ def read_mask_and_erode_it(imageNumber=1, erodeIteration=3):
 
 def preprocessing_source_image(imageNumber=1, claheKernelSize=10):
     # reading source image
-    src = cv2.imread(DataPaths.original_image_path(numberOfImage=imageNumber))
+    I_src = cv2.imread(DataPaths.original_image_path(numberOfImage=imageNumber))
     # splitting image into color channels and keeping only green one
-    _, G_channel, _ = cv2.split(src)
+    _, I_green, _ = cv2.split(I_src)
     # inverting green channel
-    G_channel_inverted = cv2.bitwise_not(G_channel)
+    I_green_inverted = cv2.bitwise_not(I_green)
+    cv2.imwrite(DataPaths.results_image_path("I_green_inverted"), I_green_inverted)
     # using white top hat
-    invert_top__hat_rect = cv2.morphologyEx(G_channel_inverted, cv2.MORPH_TOPHAT, cv2.getStructuringElement(cv2.MORPH_RECT,(11,11)))
+    I_top_hat = cv2.morphologyEx(I_green_inverted, cv2.MORPH_TOPHAT, cv2.getStructuringElement(cv2.MORPH_RECT,(11,11)))
+    cv2.imwrite(DataPaths.results_image_path("I_top_hat"), I_top_hat)
     # creating CLAHE
     clahe = cv2.createCLAHE(clipLimit=3, tileGridSize=(claheKernelSize, claheKernelSize))
     # using CLAHE
-    invert_top_hat_rect_clahe = clahe.apply(invert_top__hat_rect)
-    return invert_top_hat_rect_clahe
+    I_clahe = clahe.apply(I_top_hat)
+    cv2.imwrite(DataPaths.results_image_path("I_clahe"), I_clahe)
+    return I_clahe
 
 
 def apply_matched_filtering_on_preprocessed_image(preprocessedImage, profile, mask, thresholdLimit=5):

@@ -1,3 +1,4 @@
+from ast import Return
 import math
 import cv2
 import numpy as np
@@ -7,6 +8,7 @@ import Main
 import skeletonize
 import VesselOrientation
 import DataPaths
+import matplotlib.pyplot as plt
 
 
 
@@ -24,6 +26,10 @@ def find_middle(input_list):
     else:
         return input_list[int(middle)]
 
+def is_point_in_image(point, imageShape):
+    if point[1] >= imageShape[0] or point[0] >= imageShape[1]:
+        return False
+    return True
 
 def start_from_non_vessel(groundTruth, circlePoints):
     """ Finds element in the middle of @input_list.
@@ -41,68 +47,57 @@ def start_from_non_vessel(groundTruth, circlePoints):
         circlePoints.remove(0)
         circlePoints.append(tempPoint)
 
+def generate_next_point(vesselMiddlePoint, currentPoint, angle, possibleMaxDistance):
+    distance = 2
+    while distance <= possibleMaxDistance:
+        nextPoint = VesselOrientation.get_point_from_angle_and_distance(vesselMiddlePoint, angle, distance)
+        if not VesselOrientation.are_coordinates_same(nextPoint, currentPoint):
+            return nextPoint
+        distance = distance + 1
+    raise Exception(f"Starting at point {currentPoint}, but there is no more available points further than {distance}. {nextPoint} is not satisfactory.")
 
-def track_candidate_point(middlePoint, originalPoint, goldenTruth, newDrawingImage):
-    currentPoint = originalPoint
-    lastPoint = originalPoint
 
-    repeatCondition = True
+def track_candidate_point_one_step(lastPoint, currentPoint, goldenTruth, imageForDrawing):
+    imageShape = goldenTruth.shape
+    angleBetweenLastPointAndNewOne = angle_between_middle_and_candidate(lastPoint,currentPoint)
+    angleBetweenLastPointAndNewOne = quadrant_angle(lastPoint, currentPoint, angleBetweenLastPointAndNewOne)
+    minAngle = angleBetweenLastPointAndNewOne - (math.pi/4)
+    maxAngle = angleBetweenLastPointAndNewOne + (math.pi/4)
+    satisfactoryAngles = VesselOrientation.satisfactory_angles(goldenTruth, currentPoint, minAngle, maxAngle)
+    filteredAngles = VesselOrientation.filter_angles(satisfactoryAngles, VesselOrientation.vessel_width(goldenTruth, currentPoint))
 
-    newDrawingImage[middlePoint[1]][middlePoint[0]] = (0,0,255)
-    newDrawingImage[currentPoint[1]][currentPoint[0]] = (255,0,0)
-
-    angleBetweenMiddleAndCandidate = angle_between_middle_and_candidate(middlePoint,currentPoint)
-    angleBetweenMiddleAndCandidate = quadrant_angle(middlePoint, currentPoint, angleBetweenMiddleAndCandidate)
-    print(f"Middle point: {middlePoint}, Candidate point {currentPoint}, angle {angleBetweenMiddleAndCandidate}")
-
-    vesselMiddlePoint = VesselOrientation.vessel_middle(goldenTruth, currentPoint)
-    print(f"Vessel middle point: {vesselMiddlePoint}")
-    newDrawingImage[vesselMiddlePoint[1]][vesselMiddlePoint[0]] = (255,255,0)
-    vesselWidth = VesselOrientation.vessel_width(goldenTruth, vesselMiddlePoint)
-    minAngle = angleBetweenMiddleAndCandidate - (math.pi/4)
-    maxAngle = angleBetweenMiddleAndCandidate + (math.pi/4)
-    satisfactoryAngles = VesselOrientation.satisfactory_angles(goldenTruth, vesselMiddlePoint, minAngle, maxAngle)
-    print(f"Satisfactory Angles: {satisfactoryAngles}")
-    filteredAngles = VesselOrientation.filter_angles(satisfactoryAngles, vesselWidth)
-    print(f"Filtered Angles: {filteredAngles}")
     if len(filteredAngles) > 0:
-        lastPoint = [vesselMiddlePoint[0], vesselMiddlePoint[1]]
-        currentPoint = VesselOrientation.get_point_from_angle_and_distance(vesselMiddlePoint, filteredAngles[0][1], 2)
-        newDrawingImage[nextPoint[1]][nextPoint[0]] = (255,125,0)
+        nextPoint = VesselOrientation.get_point_from_angle_and_distance(currentPoint, filteredAngles[0][1], 2)
 
-    else:
-        repeatCondition = False
+        if goldenTruth[nextPoint[1]][nextPoint[0]] != 255:
+            return [False, [0,0]]
 
+        if not is_point_in_image(nextPoint, imageShape):
+            return [False, [0,0]]
+        
+        if len(filteredAngles) > 1:
+            imageForDrawing[nextPoint[1]][nextPoint[0]] = (255,20,147)
+        else:
+            imageForDrawing[nextPoint[1]][nextPoint[0]] = (255,125,0)
+        return [True, nextPoint]
+    return [False, [0,0]]
     
 
+def track_candidate_point(middlePoint, originalPoint, goldenTruth, newDrawingImage, wait=False):
+    lastPoint = originalPoint
+    repeatCondition, currentPoint = track_candidate_point_one_step(middlePoint, originalPoint,goldenTruth, newDrawingImage)
+    if wait:
+        plt_image = cv2.cvtColor(newDrawingImage, cv2.COLOR_BGR2RGB)
+        plt.imshow(plt_image)
+        plt.waitforbuttonpress()
     while repeatCondition:
-        newDrawingImage[currentPoint[1]][currentPoint[0]] = (255,0,0)
-
-        angleBetweenMiddleAndCandidate = angle_between_middle_and_candidate(lastPoint,currentPoint)
-        angleBetweenMiddleAndCandidate = quadrant_angle(lastPoint, currentPoint, angleBetweenMiddleAndCandidate)
-        print(f"Last point: {lastPoint}, Candidate point {currentPoint}, angle {angleBetweenMiddleAndCandidate}")
-
-        vesselMiddlePoint = VesselOrientation.vessel_middle(goldenTruth, currentPoint)
-        if goldenTruth[vesselMiddlePoint[1]][vesselMiddlePoint[0]] == 0:
-            repeatCondition = False
-            break
-        print(f"Vessel middle point: {vesselMiddlePoint}")
-        newDrawingImage[vesselMiddlePoint[1]][vesselMiddlePoint[0]] = (255,255,0)
-        vesselWidth = VesselOrientation.vessel_width(goldenTruth, vesselMiddlePoint)
-        minAngle = angleBetweenMiddleAndCandidate - (math.pi/4)
-        maxAngle = angleBetweenMiddleAndCandidate + (math.pi/4)
-        satisfactoryAngles = VesselOrientation.satisfactory_angles(goldenTruth, vesselMiddlePoint, minAngle, maxAngle)
-        print(f"Satisfactory Angles: {satisfactoryAngles}")
-        filteredAngles = VesselOrientation.filter_angles(satisfactoryAngles, vesselWidth)
-        print(f"Filtered Angles: {filteredAngles}")
-        if len(filteredAngles) > 0:
-            lastPoint = [vesselMiddlePoint[0], vesselMiddlePoint[1]]
-            currentPoint = VesselOrientation.get_point_from_angle_and_distance(vesselMiddlePoint, filteredAngles[0][1], 2)
-            newDrawingImage[nextPoint[1]][nextPoint[0]] = (255,125,0)
-            cv2.imshow("image_with_circle", newDrawingImage)
-            cv2.waitKey(0)
-        else:
-            repeatCondition = False
+        repeatCondition, nextPoint = track_candidate_point_one_step(lastPoint, currentPoint,goldenTruth, newDrawingImage)
+        lastPoint = currentPoint
+        currentPoint = nextPoint
+        if wait:
+            plt_image = cv2.cvtColor(newDrawingImage, cv2.COLOR_BGR2RGB)
+            plt.imshow(plt_image)
+            plt.waitforbuttonpress()  
 
 def find_middle_pixels_on_circle(groundTruth, circlePoints):
     """ Finds element in the middle of @input_list.
@@ -170,6 +165,11 @@ def angle_between_middle_and_candidate(middlePoint, candidatePoint):
     return rad
 
 def quadrant_angle(middleRefencePoint, point, angle):
+    if angle == 0.0:
+        if middleRefencePoint[1] > point[1]:
+            return math.pi
+        return 0.0
+            
     if point[0] > middleRefencePoint[0] and point[1] >= middleRefencePoint[1]:
         return angle
     if point[0] <= middleRefencePoint[0] and point[1] > middleRefencePoint[1]:
@@ -211,46 +211,20 @@ if __name__ == "__main__":
 
     nextPoint = [candidatePoints[3][0], candidatePoints[3][1]]
     (orientation, _, pointsOfOrientation) = VesselOrientation.vessel_orientation(golden_truth, nextPoint, math.pi, math.pi*2)
-    #for iteration in range(25):
-    #    nextPoint = get_next_point(nextPoint, pointsOfOrientation)
-    #    (orientation, lenghtOfConformity, pointsOfOrientation) = VesselOrientation.vessel_orientation(golden_truth, nextPoint, orientation-(angleStep*3), orientation+(angleStep*3))
-    #    
-    #    print(f"Oriantation: {orientation}, next point:{pointsOfOrientation[1]}")
-    #    draw_orientation_line(image_with_circle, pointsOfOrientation)
-    #    image_with_circle = draw_small_circle(image_with_circle, pointsOfOrientation[1])
-    #    cv2.imshow("image_with_circle", image_with_circle)
-    #    cv2.waitKey(0)
-    # TADY 
+
     
     middlePoint = [x,y]
-
-    #print("Start")
-    for candidatePoint in candidatePoints:
-        #print("ITARETION")
-        #print(f"BEFORE middle {middlePoint} dalsi {candidatePoint}")
-        angleBetweenMiddleAndCandidate = angle_between_middle_and_candidate(middlePoint,candidatePoint)
-        angleBetweenMiddleAndCandidate = quadrant_angle(middlePoint, candidatePoint, angleBetweenMiddleAndCandidate)
-        #print(f"Quadrant angle => {angleBetweenMiddleAndCandidate} rad => {math.degrees(angleBetweenMiddleAndCandidate)}")
-        minLookingAngle = angleBetweenMiddleAndCandidate - math.pi/2
-        maxLookingAngle = angleBetweenMiddleAndCandidate + math.pi/2
-        #print(f"minLookingAngle: {minLookingAngle}, maxLookingAngle: {maxLookingAngle}")
-        (orientation, lenghtOfConformity, pointsOfOrientation) = VesselOrientation.vessel_orientation(golden_truth, candidatePoint, minLookingAngle, maxLookingAngle)
-        #print(f"for point {candidatePoint}: {(orientation, lenghtOfConformity, pointsOfOrientation)}")
-        pointsFromMiddleToCandidate = VesselOrientation.get_points_on_line(middlePoint, angleBetweenMiddleAndCandidate, radius)
-        draw_orientation_line(image_with_circle, pointsOfOrientation, lineColor=(138,43,226))
-        draw_orientation_line(image_with_circle, pointsFromMiddleToCandidate, lineColor=(98,255,88))
-    
-    for candidatePoint in candidatePoints:
-        middlePoint = VesselOrientation.vessel_middle(golden_truth, candidatePoint)
-        image_with_circle[middlePoint[1]][middlePoint[0]] = (255,255,0)
-    cv2.imshow("image_with_circle", image_with_circle)
-    cv2.waitKey(0)
-    cv2.imwrite(DataPaths.results_image_path("candidatePointsWithOrientations"), image_with_circle)
 
     newDrawingImage = cv2.merge((golden_truth,golden_truth,golden_truth))
+
+
+    
     middlePoint = [x,y]
-    #track_candidate_point(middlePoint, candidatePoints[1], golden_truth, newDrawingImage)
+    track_candidate_point(middlePoint, candidatePoints[1], golden_truth, newDrawingImage)
     track_candidate_point(middlePoint, candidatePoints[2], golden_truth, newDrawingImage)
-    track_candidate_point(middlePoint, candidatePoints[3], golden_truth, newDrawingImage)
-    cv2.imshow("image_with_circle", newDrawingImage)
-    cv2.waitKey(0)
+    #track_candidate_point(middlePoint, candidatePoints[3], golden_truth, newDrawingImage)
+    cv2.imwrite(DataPaths.results_image_path("result_of_tracking"), newDrawingImage)
+    plt_image = cv2.cvtColor(newDrawingImage, cv2.COLOR_BGR2RGB)
+    plot = plt.imshow(plt_image)
+    while True:
+        plt.waitforbuttonpress()

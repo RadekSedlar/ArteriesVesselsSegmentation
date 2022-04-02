@@ -1,8 +1,7 @@
 import cv2
-from cv2 import split
 import os
 import sys
-import os
+import matplotlib.pyplot as plt
   
 # getting the name of the directory
 # where the this file is present.
@@ -19,27 +18,15 @@ sys.path.append(parent)
 # now we can import the module in the parent
 # directory.
 import CandidatePoints
-
-
-def setPixel(image, normalCoordinates, color):
-    image[normalCoordinates[1],normalCoordinates[0]] = color
-
-src = cv2.imread(os.path.join(os.path.dirname(os.path.abspath(__file__)), "SeekingTraining.bmp"))
-print(src.shape)
-_, _, grayScale = cv2.split(src)
-
-startingPoint = [14,10]
-setPixel(src, startingPoint, (0,0,255))
-
-
-CandidatePoints.draw_small_circle(src, startingPoint)
+import Main
 
 
 
+if __name__ == "__main__":
+    startPoint = [13,9]
+    currentPoint = [14,10]
+    goldenTruth = cv2.imread(os.path.join(os.path.dirname(os.path.abspath(__file__)), "SeekingTraining.bmp"), cv2.IMREAD_GRAYSCALE)
+    pictureForDrawing = cv2.merge((goldenTruth,goldenTruth,goldenTruth))
 
-
-
-
-cv2.imshow("image_with_circle", src)
-cv2.imwrite(os.path.join(os.path.dirname(os.path.abspath(__file__)), "SeekingTrainingResult.bmp"), src)
-cv2.waitKey(0)
+    CandidatePoints.track_candidate_point(startPoint, currentPoint, goldenTruth, pictureForDrawing)
+    print("END")  

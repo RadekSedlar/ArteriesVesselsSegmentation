@@ -1,6 +1,7 @@
 import math
 import cv2
 import numpy as np
+import CandidatePoints
 
 def get_point_from_angle_and_distance(originalPoint, angle, distance):
     newY = int(distance * math.cos(angle))
@@ -15,9 +16,13 @@ def get_points_on_line(originalPoint, angle, lenght):
 
 def get_max_points_on_line(groundTruth, originalPoint, angle):
     vesselPointsOnLine = []
+    imageShape = groundTruth.shape
     distanceFromOrigin = 0
     while True:
         nextPoint = get_point_from_angle_and_distance(originalPoint, angle, distanceFromOrigin)
+        if not CandidatePoints.is_point_in_image(nextPoint, imageShape):
+            break
+
         if groundTruth[nextPoint[1]][nextPoint[0]] != 255:
             break
         vesselPointsOnLine.append(nextPoint)
@@ -93,14 +98,14 @@ def filter_angles(anglesWithLenght, width):
     for lenght, angle in anglesWithLenght:
         
         widthDouble = width*2
-        print(f"lenght <> widthDouble | {lenght} <> {widthDouble}")
+        #print(f"lenght <> widthDouble | {lenght} <> {widthDouble}")
         if lenght >= widthDouble:
             satisfactoryAngles.append([lenght, angle])
     
     if len(satisfactoryAngles) == 0:
         for lenght, angle in anglesWithLenght:
             
-            print(f"lenght <> width | {lenght} <> {width}")
+            #print(f"lenght <> width | {lenght} <> {width}")
             if lenght >= width:
                 satisfactoryAngles.append([lenght, angle])
         longestLineLenght = max([sublist[0] for sublist in satisfactoryAngles])
@@ -113,15 +118,15 @@ def filter_angles(anglesWithLenght, width):
         return satisfactoryAngles
     # more angles
     # find longest line in angles
-    print(f"satisfactoryAngles => {satisfactoryAngles}")
+    #print(f"satisfactoryAngles => {satisfactoryAngles}")
     longestLineLenght = max([sublist[0] for sublist in satisfactoryAngles])
-    print(f"longest line lenght => {longestLineLenght}")
+    #print(f"longest line lenght => {longestLineLenght}")
     # filter only angles that are more than 30% from longestLineLenght
     bestConformity = [ [l,a] for l,a in satisfactoryAngles if l == longestLineLenght][0]
-    print(f"bestConformity => {bestConformity}")
+    #print(f"bestConformity => {bestConformity}")
     filtered = [bestConformity]
     for currentLenghtWithAngle in satisfactoryAngles:
-        if angle_diff(bestConformity[1], currentLenghtWithAngle[1]) > (math.pi/6):
+        if angle_diff(bestConformity[1], currentLenghtWithAngle[1]) > (math.pi/5):
             filtered.append(currentLenghtWithAngle)
     return filtered
 
