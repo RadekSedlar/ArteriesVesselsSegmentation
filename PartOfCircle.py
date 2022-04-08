@@ -35,9 +35,9 @@ if __name__ == "__main__":
     cicleCoordinates1 = CircleCoordinationFinder.listOfCoordinates(1,startPoint[0],startPoint[1])
     cicleCoordinates1 = filter_points_on_circle_by_angle([startPoint[1], startPoint[0]], cicleCoordinates1, angleBetweeenStartAndCurrentPoint)
     cicleCoordinates2 = CircleCoordinationFinder.listOfCoordinates(2,startPoint[0],startPoint[1])
-    cicleCoordinates2 = filter_points_on_circle_by_angle(startPoint, cicleCoordinates2, angleBetweeenStartAndCurrentPoint)
+    cicleCoordinates2 = filter_points_on_circle_by_angle([startPoint[1], startPoint[0]], cicleCoordinates2, angleBetweeenStartAndCurrentPoint)
     cicleCoordinates3 = CircleCoordinationFinder.listOfCoordinates(3,startPoint[0],startPoint[1])
-    cicleCoordinates3 = filter_points_on_circle_by_angle(startPoint, cicleCoordinates3, angleBetweeenStartAndCurrentPoint)
+    cicleCoordinates3 = filter_points_on_circle_by_angle([startPoint[1], startPoint[0]], cicleCoordinates3, angleBetweeenStartAndCurrentPoint)
 
 
 
