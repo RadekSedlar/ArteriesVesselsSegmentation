@@ -28,7 +28,7 @@ class VesselProfile(object):
 
 
         gauss_second_derivative = gaussian_secondDerivative(self.x_values, self.mu, self.sig)
-        self.profileSecondDerivative = np.average(gauss_second_derivative.reshape(-1, 10), axis=1)
+        self.profileSecondDerivative = gauss_second_derivative[::10]
     
     def print_profiles(self):
         print(f"-+-+-+-+-+-+- Profile {self.name} -+-+-+-+-+-+-")
@@ -38,18 +38,26 @@ class VesselProfile(object):
     def plot_profile(self):
         fig, ax = plt.subplots()
         gaussianPlot, = ax.plot(self.x_values, gaussian(self.x_values, self.mu, self.sig), label="Hodnoty Gaussova rozdeleni")
-        gaussianDerivativePlot, = ax.plot(self.x_values, gaussian_secondDerivative(self.x_values, self.mu, self.sig), label="Hodnoty 2. derivace Gaussova rozdeleni")
-        gaussSubtractedFromMaxPlot, = ax.plot(self.x_values, self.gaussSubtractedFromMax, label="Hodnoty Gaussova rozdeleni po odecteni maxima")
-        gaussMeanSubtractedPlot, = ax.plot(self.x_values, self.gaussMeanSubtracted, label="Hodnoty Gaussova rozdeleni po odecteni prumeru")
         
-        ax.scatter(np.arange(len(self.profile)), self.profile)
+        gaussSubtractedFromMaxPlot, = ax.plot(self.x_values, self.gaussSubtractedFromMax, label="Hodnoty Gaussova rozdělení po odečtení maxima")
+        gaussMeanSubtractedPlot, = ax.plot(self.x_values, self.gaussMeanSubtracted, label="Hodnoty Gaussova rozdělení po odečtení průměru")
+        scatter = ax.scatter(np.arange(len(self.profile)), self.profile, label="Výsledné hodnoty profilu")
         # Create a legend for the first line.
-        first_legend = ax.legend(handles=[gaussianPlot, gaussianDerivativePlot, gaussSubtractedFromMaxPlot, gaussMeanSubtractedPlot], loc='lower right')
+        first_legend = ax.legend(handles=[gaussianPlot, gaussSubtractedFromMaxPlot, gaussMeanSubtractedPlot,scatter], loc='lower right')
 
         # Add the legend manually to the Axes.
         ax.add_artist(first_legend)
+        plt.show()
 
+        fig, ax = plt.subplots()
+        gaussianPlot, = ax.plot(self.x_values, gaussian(self.x_values, self.mu, self.sig), label="Hodnoty Gaussova rozdeleni")
+        gaussianDerivativePlot, = ax.plot(self.x_values, gaussian_secondDerivative(self.x_values, self.mu, self.sig), label="Hodnoty 2. derivace Gaussova rozdělení")
+        scatter = ax.scatter(np.arange(len(self.profile)), self.profileSecondDerivative, label="Výsledné hodnoty 2. derivace profilu")
+        # Create a legend for the first line.
+        first_legend = ax.legend(handles=[gaussianDerivativePlot, scatter, gaussianPlot], loc='lower right')
 
+        # Add the legend manually to the Axes.
+        ax.add_artist(first_legend)
         plt.show()
 
 
