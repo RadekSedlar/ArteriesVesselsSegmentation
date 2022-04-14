@@ -183,9 +183,10 @@ def skeletonize_My_Approach(original):
 if __name__ == "__main__":
     imageNumber = 1
     src = cv2.imread(DataPaths.original_image_path(numberOfImage=imageNumber))
-    golden_truth = Main.read_gif_image(DataPaths.original_manual_image_path(numberOfImage=imageNumber))
+    golden_truth = Main.read_mask_image(DataPaths.original_manual_image_path(numberOfImage=imageNumber))
     print(src.shape)
     only_middle = skeletonize_My_Approach(golden_truth)
+    cv2.imwrite(DataPaths.skeletonize_results_image_path("myApproach"), only_middle)
     (columns, rows) = only_middle.shape
     
     skeleton = cv2.merge((only_middle,only_middle,only_middle))
@@ -204,7 +205,7 @@ if __name__ == "__main__":
 
     
 
-    mask = Main.read_gif_image(DataPaths.original_image_mask_path(numberOfImage=imageNumber))
+    mask = Main.read_mask_image(DataPaths.original_image_mask_path(numberOfImage=imageNumber))
     B_channel, G_channel, R_channel = cv2.split(src)
     clahe = cv2.createCLAHE(clipLimit=3, tileGridSize=(10, 10))
 

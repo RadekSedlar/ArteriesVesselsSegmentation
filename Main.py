@@ -122,7 +122,7 @@ def rotate_image(image, angle):
 
 
 
-def read_gif_image(path):
+def read_mask_image(path, dataSet):
     """ Rotates image by a certain angle
 
     @type path: string
@@ -130,10 +130,15 @@ def read_gif_image(path):
     
     @rtype: [[uint8]]
     @returns: Image with 0 to 255 values"""
+    if dataSet == "HRF":
+        image = cv2.imread(path)
+        _, G_mask, _ = cv2.split(image)
+        return G_mask
+
     cap = cv2.VideoCapture(path)
-    ret, mask = cap.read()
+    _, mask = cap.read()
     cap.release()
-    B_mask, G_mask, R_mask = cv2.split(mask)
+    _, G_mask, _ = cv2.split(mask)
     return G_mask
     
 
@@ -144,7 +149,7 @@ if __name__ == "__main__":
     src = cv2.imread(DataPaths.original_image_path(number_of_image))
     print(src.shape)
     # try to mask instrument pupil edge
-    mask = read_gif_image(DataPaths.original_image_mask_path(number_of_image))
+    mask = read_mask_image(DataPaths.original_image_mask_path(number_of_image))
     B_separated, G_separated, R_separated = cv2.split(src)
     cv2.imshow("B", B_separated)
     cv2.imshow("G", G_separated)

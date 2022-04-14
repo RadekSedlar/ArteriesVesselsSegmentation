@@ -187,7 +187,7 @@ def coordinate_difference(x1, x2):
 if __name__ == "__main__":
 
     imageNumber = 1
-    golden_truth = Main.read_gif_image(DataPaths.original_manual_image_path(imageNumber))
+    golden_truth = Main.read_mask_image(DataPaths.original_manual_image_path(imageNumber))
     src = cv2.imread(DataPaths.original_image_path(imageNumber))
     radius = 45
 
@@ -196,10 +196,15 @@ if __name__ == "__main__":
     image_with_circle = cv2.circle(cv2.merge((golden_truth,golden_truth,golden_truth)), (x, y), radius, (0, 0, 255), 2)
 
     cv2.imwrite(DataPaths.results_image_path("localizedOD"), image_with_circle)
+        
 
     circle_coordinates = CircleCoordinationFinder.listOfCoordinates(radius, x_of_middle=x, y_of_middle=y)
     candidatePoints = find_middle_pixels_on_circle(golden_truth, circle_coordinates)
     #print("Start original")
+    pointsImage= cv2.merge((golden_truth,golden_truth,golden_truth))
+    for candidatePoint in candidatePoints:
+        pointsImage = cv2.circle(pointsImage, candidatePoint, radius=2,color = (0,0,255), thickness=-1)
+    cv2.imwrite(DataPaths.results_image_path("localizedOD_with_points"), pointsImage)
     for candidatePoint in candidatePoints:
         (orientation, lenghtOfConformity, pointsOfOrientation) = VesselOrientation.vessel_orientation(golden_truth, candidatePoint, 0, math.pi*2)
         #print(f"for point {candidatePoint}: {(orientation, lenghtOfConformity, pointsOfOrientation)}")

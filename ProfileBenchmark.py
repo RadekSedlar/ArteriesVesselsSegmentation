@@ -12,30 +12,30 @@ def invert_profile(profile):
         listToReturn.append(item * (-1))
     return listToReturn
 
-def read_mask_and_erode_it(imageNumber=1, erodeIteration=3):
-    mask = Main.read_gif_image(DataPaths.original_image_mask_path(numberOfImage=imageNumber))
+def read_mask_and_erode_it(imageNumber, dateSet, erodeIteration=3):
+    mask = Main.read_mask_image(DataPaths.original_image_mask_path(imageNumber, dateSet), dateSet)
     # create kernel for ongoing erosion
     kernel_erosion = np.ones((5,5),np.uint8)
     # eroding mask
     mask = cv2.erode(mask,kernel_erosion,iterations = erodeIteration)
     return mask
 
-def preprocessing_source_image(imageNumber=1, claheKernelSize=10):
+def preprocessing_source_image(imageNumber, dataSet, claheKernelSize=10):
     # reading source image
-    I_src = cv2.imread(DataPaths.original_image_path(numberOfImage=imageNumber))
+    I_src = cv2.imread(DataPaths.original_image_path(numberOfImage=imageNumber, dataSet=dataSet))
     # splitting image into color channels and keeping only green one
     _, I_green, _ = cv2.split(I_src)
     # inverting green channel
     I_green_inverted = cv2.bitwise_not(I_green)
-    cv2.imwrite(DataPaths.results_image_path("I_green_inverted"), I_green_inverted)
+    #cv2.imwrite(DataPaths.results_image_path("I_green_inverted"), I_green_inverted)
     # using white top hat
     I_top_hat = cv2.morphologyEx(I_green_inverted, cv2.MORPH_TOPHAT, cv2.getStructuringElement(cv2.MORPH_RECT,(11,11)))
-    cv2.imwrite(DataPaths.results_image_path("I_top_hat"), I_top_hat)
+    #cv2.imwrite(DataPaths.results_image_path("I_top_hat"), I_top_hat)
     # creating CLAHE
     clahe = cv2.createCLAHE(clipLimit=3, tileGridSize=(claheKernelSize, claheKernelSize))
     # using CLAHE
     I_clahe = clahe.apply(I_top_hat)
-    cv2.imwrite(DataPaths.results_image_path("I_clahe"), I_clahe)
+    #cv2.imwrite(DataPaths.results_image_path("I_clahe"), I_clahe)
     return I_clahe
 
 
@@ -60,27 +60,36 @@ if __name__ == "__main__":
     vesselProfile2 = VesselProfile(7, 1.2, "Profil-2", 14)
     vesselProfile3 = VesselProfile(7, 0.9, "Profil-7", 14)
 
-    vesselProfiles = [vesselProfile1, vesselProfile2, vesselProfile3]
+    vesselProfiles = [vesselProfile1]
 
     biggestScore = 0
     biggestScoreName = ""
     bestAccurancy = 0
     bestAccurancyName = ""
-    imageNumber = 4
     resultsDict = {}
     saveProgress = False
+
+    dataSet = "HRF"
+    numberOfImages = 1
+    if dataSet == "DRIVE":
+        numberOfImages = 10
+    else:
+        numberOfImages = 45
+            
     
-    for imageNumber in range(1,9):
+    for imageNumber in range(1,numberOfImages+1):
         
-        mask = read_mask_and_erode_it(imageNumber)
-        preprocessedImage = preprocessing_source_image(imageNumber=imageNumber)
+        mask = read_mask_and_erode_it(imageNumber, dataSet)
+        preprocessedImage = preprocessing_source_image(imageNumber, dataSet)
         if saveProgress:
             cv2.imwrite(DataPaths.results_image_path(f"Preprocessed_{imageNumber}"), preprocessedImage)
-        manualy_separated = Main.read_gif_image(DataPaths.original_manual_image_path(numberOfImage=imageNumber))
-    
+        cv2.imshow("temp", preprocessedImage)
         
+        manualy_separated = Main.read_mask_image(DataPaths.original_manual_image_path(imageNumber, dataSet), dataSet)
+        cv2.imshow("temp2", manualy_separated)
+        cv2.waitKey(0)
         for vesselProfilePrimary in vesselProfiles:
-            for primaryThreshold in range(3,6):
+            for primaryThreshold in range(3,5):
                 primaryFilteringResult = apply_matched_filtering_on_preprocessed_image(preprocessedImage, np.array(invert_profile(vesselProfilePrimary.profile), dtype=np.float32), mask=mask, thresholdLimit=primaryThreshold)
                 imageScoreOnlyPrimary = ImageScore.ImageScore(primaryFilteringResult, manualy_separated, mask)
                 imageScoreOnlyPrimary.compute_statistics()
@@ -91,7 +100,7 @@ if __name__ == "__main__":
                     resultsDict[onlyPrimaryName] = [imageScoreOnlyPrimary.accuracy]
 
                 for vesselProfileSecondary in vesselProfiles:
-                    for secondaryThreshold in range(3,6):
+                    for secondaryThreshold in range(3,5):
                         secondaryFilteringResult = apply_matched_filtering_on_preprocessed_image(preprocessedImage, np.array(invert_profile(vesselProfileSecondary.profileSecondDerivative), dtype=np.float32), mask=mask, thresholdLimit=secondaryThreshold)
                         imageScoreOnlySecondary = ImageScore.ImageScore(secondaryFilteringResult, manualy_separated, mask)
                         imageScoreOnlySecondary.compute_statistics()
@@ -125,7 +134,6 @@ if __name__ == "__main__":
                         
     print(f"\nBest Score is: {biggestScoreName} with {biggestScore}")
     print(f"\nBest accuracy is: {bestAccurancyName} with {bestAccurancy}")
-    print(resultsDict)
     bestProfileAcc = 0
     bestProfileName = ""
     for key in resultsDict:
@@ -134,9 +142,5 @@ if __name__ == "__main__":
         if resultsDict[key] > bestProfileAcc:
             bestProfileAcc = resultsDict[key]
             bestProfileName = key
-    print(resultsDict)
     print(f"Nejlepsi ACC je: {bestProfileAcc} a je to profil {bestProfileName}")
-                
-            
 
-    
