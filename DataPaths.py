@@ -1,4 +1,3 @@
-from lib2to3.pgen2 import driver
 import os
 
 def get_current_path():
@@ -42,7 +41,7 @@ def original_image_path(numberOfImage=1, dataSet="DRIVE"):
     return os.path.join(get_current_path(), "Data", dataSet, nameOfImageFile)
 
 def check_name_of_dataset(name):
-    if name == "DRIVE" or name == "HRF":
+    if name == "DRIVE" or name == "HRF" or name == "STARE":
         return
     raise Exception(f"Bad dataset name {name}")
 
@@ -106,10 +105,15 @@ def results_path():
 def create_mask_name(imageNumber, dataSet):
     if dataSet == "DRIVE":
         return create_mask_name_DRIVE(imageNumber)
+    if dataSet == "STARE":
+        return create_mask_name_STARE(imageNumber)
     return create_mask_name_HRF(imageNumber)
 
 def create_mask_name_DRIVE(imageNumber):
     return f"{imageNumber}_training_mask.gif"
+
+def create_mask_name_STARE(imageNumber):
+    return f"mask_im_{imageNumber}.bmp"
 
 def create_mask_name_HRF(imageNumber):
     number = ((imageNumber-1)//3)+1
@@ -125,6 +129,8 @@ def create_mask_name_HRF(imageNumber):
 def create_original_image_name(imageNumber, dataSet):
     if dataSet == "DRIVE":
         return create_original_image_name_DRIVE(imageNumber)
+    if dataSet == "STARE":
+        return create_original_image_name_STARE(imageNumber)
     return create_original_image_name_HRF(imageNumber)
 
 def create_original_image_name_HRF(imageNumber):
@@ -141,9 +147,14 @@ def create_original_image_name_HRF(imageNumber):
 def create_original_image_name_DRIVE(imageNumber):
     return f"{imageNumber}_training.tif"
 
+def create_original_image_name_STARE(imageNumber):
+    return f"im_{imageNumber}.bmp"
+
 def create_original_manual_image_name(imageNumber, dataSet):
     if dataSet == "DRIVE":
         return create_original_manual_image_name_DRIVE(imageNumber)
+    if dataSet == "STARE":
+        return create_original_manual_image_name_STARE(imageNumber)
     return create_original_manual_image_name_HRF(imageNumber)
 
 def create_original_manual_image_name_HRF(imageNumber):
@@ -159,3 +170,6 @@ def create_original_manual_image_name_HRF(imageNumber):
 
 def create_original_manual_image_name_DRIVE(imageNumber):
     return f"{imageNumber}_manual1.gif"
+
+def create_original_manual_image_name_STARE(imageNumber):
+    return f"im_{imageNumber}_result.bmp"

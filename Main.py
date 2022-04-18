@@ -130,10 +130,11 @@ def read_mask_image(path, dataSet):
     
     @rtype: [[uint8]]
     @returns: Image with 0 to 255 values"""
-    if dataSet == "HRF":
+    if dataSet == "HRF" or dataSet == "STARE":
         image = cv2.imread(path)
         _, G_mask, _ = cv2.split(image)
         return G_mask
+    
 
     cap = cv2.VideoCapture(path)
     _, mask = cap.read()

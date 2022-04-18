@@ -46,10 +46,11 @@ for imageNumber in range(1,46):
     acumulatedAccuracy += imageScore.accuracy
     acumulatedSensitivity += imageScore.sensitivity
     acumulatedSpecificity += imageScore.specificity
+        
 
-acumulatedAccuracy = acumulatedAccuracy / 10
-acumulatedSensitivity = acumulatedSensitivity / 10
-acumulatedSpecificity = acumulatedSpecificity / 10
+acumulatedAccuracy = acumulatedAccuracy / 45
+acumulatedSensitivity = acumulatedSensitivity / 45
+acumulatedSpecificity = acumulatedSpecificity / 45
 
 print("Averall score")
 print(f"Accuracy => {acumulatedAccuracy}")

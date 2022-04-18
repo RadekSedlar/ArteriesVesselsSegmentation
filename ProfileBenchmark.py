@@ -22,7 +22,8 @@ def read_mask_and_erode_it(imageNumber, dateSet, erodeIteration=3):
 
 def preprocessing_source_image(imageNumber, dataSet, claheKernelSize=10):
     # reading source image
-    I_src = cv2.imread(DataPaths.original_image_path(numberOfImage=imageNumber, dataSet=dataSet))
+    pathToSourceImage = DataPaths.original_image_path(numberOfImage=imageNumber, dataSet=dataSet)
+    I_src = cv2.imread(pathToSourceImage)
     # splitting image into color channels and keeping only green one
     _, I_green, _ = cv2.split(I_src)
     # inverting green channel

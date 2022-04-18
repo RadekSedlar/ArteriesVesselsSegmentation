@@ -1,4 +1,6 @@
 import math
+
+from numpy import ufunc
 import Main
 import copy
 import cv2
@@ -44,7 +46,7 @@ def get_neighborhood_coordinates(middlePoint, neighborhoodSize, minAngle, maxAng
         #print(f"Adding {addedPoint}")
         returnedCoordinates.append(addedPoint)
 
-    for columnAdditon in range(1-halfOfSize,halfOfSize+1):
+    for columnAdditon in range(1-halfOfSize,halfOfSize):
         addedPoint = [middlePoint[0]+halfOfSize, middlePoint[1]+columnAdditon]
         #print(f"Adding {addedPoint}")
         returnedCoordinates.append(addedPoint)
@@ -54,7 +56,7 @@ def get_neighborhood_coordinates(middlePoint, neighborhoodSize, minAngle, maxAng
         #print(f"Adding {addedPoint}")
         returnedCoordinates.append(addedPoint)
         
-    for columnAdditon in range(halfOfSize,0-halfOfSize, -1):
+    for columnAdditon in range(halfOfSize - 1,0-halfOfSize, -1):
         addedPoint = [middlePoint[0]-halfOfSize, middlePoint[1]+columnAdditon]
         #print(f"Adding {addedPoint}")
         returnedCoordinates.append(addedPoint)
@@ -65,7 +67,7 @@ def get_neighborhood_coordinates(middlePoint, neighborhoodSize, minAngle, maxAng
     finalPoints = []
 
     for point in returnedCoordinates:
-        angleBetweenLastPointAndNewOne = CandidatePoints.angle_between_middle_and_candidate(middlePoint,point)
+        angleBetweenLastPointAndNewOne = CandidatePoints.angle_between_middle_and_candidate(middlePoint, point)
         angleBetweenLastPointAndNewOne = CandidatePoints.quadrant_angle(middlePoint, point, angleBetweenLastPointAndNewOne)
         if VesselOrientation.is_angle_in_range(angleBetweenLastPointAndNewOne, minAngle, maxAngle):
             finalPoints.append(point)
@@ -74,7 +76,17 @@ def get_neighborhood_coordinates(middlePoint, neighborhoodSize, minAngle, maxAng
     return finalPoints
     
 
-def find_next_point(skeletonizedImage, previousPoint, currentPoint, imageForDrawing, neighborhoodSize):
+def are_colors_same(color1,color2):
+    if color1[0] != color2[0]:
+        return False
+    if color1[1] != color2[1]:
+        return False
+    if color1[2] != color2[2]:
+        return False
+    return True
+    
+
+def find_next_points(skeletonizedImage, previousPoint, currentPoint, imageForDrawing, neighborhoodSize):
 
     tempAngle = CandidatePoints.angle_between_middle_and_candidate(previousPoint,currentPoint)
     startingAngle = CandidatePoints.quadrant_angle(previousPoint, currentPoint, tempAngle)
@@ -84,15 +96,60 @@ def find_next_point(skeletonizedImage, previousPoint, currentPoint, imageForDraw
 
     vesselsInNeighborhood = find_vessels_in_neighborhood(skeletonizedImage, currentPoint, neighborhoodSize, minAngle, maxAngle)
 
-    for vesselPixelCoordinates in vesselsInNeighborhood:
-        imageForDrawing[vesselPixelCoordinates[1], vesselPixelCoordinates[0]] = bluePixel
-    if len(vesselsInNeighborhood) > 0:
-        print(f"found next point {vesselsInNeighborhood[0]}")
-        
-        imageForDrawing[vesselsInNeighborhood[0][1], vesselsInNeighborhood[0][0]] = greenPixel
-        return vesselsInNeighborhood[0]
+    nonGreenPixels = []
+
+    for pixel in vesselsInNeighborhood:
+        pixelValue = imageForDrawing[pixel[1], pixel[0]]
+        if not are_colors_same(pixelValue, greenPixel):
+            nonGreenPixels.append(pixel)
+
+    for vesselPixelCoordinates in nonGreenPixels:
+        imageForDrawing[vesselPixelCoordinates[1], vesselPixelCoordinates[0]] = (255, 0, 0)
+    if len(nonGreenPixels) > 0:
+        #print(f"found next point {vesselsInNeighborhood[0]}")
+        return nonGreenPixels
     print("No new points found")
     return []
+
+def find_next_points_in_both_areas(skeletonizedImage, previousPoint, currentPoint, imageForDrawing):
+    nextCurrentPoints = find_next_points(skeletonizedImage, previousPoint, currentPoint, imageForDrawing, 3)
+    if not nextCurrentPoints:
+        nextCurrentPoints = find_next_points(skeletonizedImage, previousPoint, currentPoint, imageForDrawing, 5)
+    return nextCurrentPoints
+        
+    
+
+def try_path(lastMainVesselPoint, startingPoint, originalAngle, skeletonizedImage, imageForDrawing):
+
+    lastPoint = [startingPoint[0],startingPoint[1]]
+    nextPoints = find_next_points(skeletonizedImage, lastMainVesselPoint, lastPoint, imageForDrawing, 3)
+    minAllowedAngle = originalAngle - math.pi/4
+    maxAllowedAngle = originalAngle + math.pi/4
+
+    for _ in range(5):
+        if len(nextPoints) < 1:
+            return True
+        
+        if len(nextPoints) > 1:
+            return True
+        
+        imageForDrawing[nextPoints[0][1], nextPoints[0][0]] = redPixel
+
+        tempCurrentPoint = [nextPoints[0][0], nextPoints[0][1]]
+        tempAngle = CandidatePoints.angle_between_middle_and_candidate(lastPoint,tempCurrentPoint)
+        lastAngle = CandidatePoints.quadrant_angle(lastPoint, tempCurrentPoint, tempAngle)
+
+        if not VesselOrientation.is_angle_in_range(lastAngle, minAllowedAngle, maxAllowedAngle):
+            return False
+        
+        nextPointsTemp = find_next_points_in_both_areas(skeletonizedImage, lastPoint, tempCurrentPoint, imageForDrawing)
+        lastPoint = [nextPoints[0][0], nextPoints[0][1]]
+        nextPoints = nextPointsTemp
+        
+            
+        
+    return True
+    
 
 def find_end_of_candidate_point(odMiddlePoint, startingPoint, skeletonizedImage, imageForDrawing):
     tempAngle = CandidatePoints.angle_between_middle_and_candidate(odMiddlePoint,startingPoint)
@@ -106,32 +163,37 @@ def find_end_of_candidate_point(odMiddlePoint, startingPoint, skeletonizedImage,
 
     for vesselPixelCoordinates in vesselsInNeighborhood:
         imageForDrawing[vesselPixelCoordinates[1], vesselPixelCoordinates[0]] = bluePixel
-    if len(vesselsInNeighborhood) > 0:
-        print(f"found next point {vesselsInNeighborhood[0]}")
-        
-        currentPoint = [vesselsInNeighborhood[0][0], vesselsInNeighborhood[0][1]]
+    
+    
+    for vesselPixelCoordinates in vesselsInNeighborhood:
+        currentPoint = [vesselPixelCoordinates[0], vesselPixelCoordinates[1]]
         print(f"currentPoint: {currentPoint}")
-        imageForDrawing[vesselsInNeighborhood[0][1], vesselsInNeighborhood[0][0]] = greenPixel
         while currentPoint:
-            nextCurrentPoint = find_next_point(skeletonizedImage, lastVesselPointFound, currentPoint, imageForDrawing, neighborhoodSize)
+            nextCurrentPoints = find_next_points_in_both_areas(skeletonizedImage, lastVesselPointFound, currentPoint, imageForDrawing)
             
-            if not nextCurrentPoint:
-                print("Advanced search")
-                nextCurrentPoint = find_next_point(skeletonizedImage, lastVesselPointFound, currentPoint, imageForDrawing, 5)
-                if not nextCurrentPoint:
-                    print("No more points")
-                    
-                    break
+            if len(nextCurrentPoints) > 1:
+                for nextPathPoint in nextCurrentPoints:
+                    tempAngle = CandidatePoints.angle_between_middle_and_candidate(currentPoint,nextPathPoint)
+                    allowedAngle = CandidatePoints.quadrant_angle(currentPoint, nextPathPoint, tempAngle)
+                    if try_path(lastVesselPointFound, nextPathPoint, allowedAngle, skeletonizedImage, imageForDrawing):
+                        find_end_of_candidate_point(lastVesselPointFound, nextPathPoint, skeletonizedImage, imageForDrawing)
+                    else:
+                        print("Path bad")
+                break
+            
+            if not nextCurrentPoints:
+                print("No more points")
+                break
+            
+            imageForDrawing[nextCurrentPoints[0][1], nextCurrentPoints[0][0]] = greenPixel
+
             lastVesselPointFound = [currentPoint[0], currentPoint[1]]
-            currentPoint = [nextCurrentPoint[0], nextCurrentPoint[1]]
-            print("ITERATION ++++++++++")
-            print(f"lastVesselPointFound: {lastVesselPointFound}")
-            print(f"currentPoint: {currentPoint}")
+            currentPoint = [nextCurrentPoints[0][0], nextCurrentPoints[0][1]]
 
         save_and_show_progress(imageForDrawing)
-    else:
-        print("No next point found in neigbourhood of starting pixel")
+
     return
+    
     
 
 if __name__ == "__main__":
@@ -139,7 +201,7 @@ if __name__ == "__main__":
     bluePixel = (255,0,0)
     redPixel = (0,0,255)
     imageNumber = 1
-    golden_truth = Main.read_mask_image(DataPaths.original_manual_image_path())
+    golden_truth = Main.read_mask_image(DataPaths.original_manual_image_path(), "DRIVE")
     skepetonizeInput = copy.deepcopy(golden_truth)
 
     src = cv2.imread(DataPaths.original_image_path(imageNumber))
@@ -184,8 +246,10 @@ if __name__ == "__main__":
         
 
     for startingPoint in startingPoints:
+        print(f"Candidate point {startingPoint} ++++++++++++++++++++")
         find_end_of_candidate_point(odMiddlePoint, startingPoint, skeletonized, imageForDrawing)
     save_and_show_progress(imageForDrawing)
+    cv2.imwrite(DataPaths.results_image_path("Skeletonized"),skeletonized)
 
 
     

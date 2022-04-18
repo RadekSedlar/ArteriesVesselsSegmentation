@@ -152,7 +152,14 @@ def is_angle_in_range(angle, minAngle, maxAngle):
         if angle > maxAngle and angle < minAngle:
             return False
         return True
-            
+
+    if maxAngle > math.pi*2:
+        newMaxAngle = maxAngle-math.pi*2
+        if angle <= newMaxAngle or angle >= minAngle:
+            return True
+        else:
+            return False
+    
     if angle <= maxAngle and angle >= minAngle:
         return True
     return False
