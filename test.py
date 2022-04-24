@@ -49,6 +49,16 @@ def find_vessels_in_neighborhood(skeletonizedImage, currentLocation, neighborhoo
 
     return vesselPixels
 
+def find_colors_in_neighborhood(image, currentLocation):
+    neighborhood = get_neighborhood_coordinates(currentLocation, 3, 0, math.pi*2)
+    for coordinateIndex in range(0, len(neighborhood)):
+        if are_colors_same(image[neighborhood[coordinateIndex][1], neighborhood[coordinateIndex][0]], bluePixel):
+            return bluePixel
+        if are_colors_same(image[neighborhood[coordinateIndex][1], neighborhood[coordinateIndex][0]], redPixel):
+            return redPixel
+
+    return whitePixel
+
 def is_index_background_or_out_of_array(skeletonizedImage, neighborhood, nextIndex):
     if nextIndex >= len(neighborhood):
         return True
@@ -125,7 +135,7 @@ def apply_skeletonization(skepetonizeInput):
         for y in range(rows):
             if skepetonizeInput[x ,y] != 0:
                 skepetonizeInput[x ,y] = 1
-    skeletonized = skeletonize(skepetonizeInput)
+    skeletonized = skeletonize(skepetonizeInput, method='lee')
     skeletonized = skeletonized.astype("uint8")
     for x in range(columns):
         for y in range(rows):
@@ -158,20 +168,35 @@ def fill_part_of_vessel(node, angle, choosenColor, imageForDrawing):
 
 
 def attempt_2():
-    imageNumber = 1
-    golden_truth = Main.read_mask_image(DataPaths.original_manual_image_path(), "DRIVE")
+    imageNumber = 2
+    golden_truth = Main.read_mask_image(DataPaths.original_manual_image_path(imageNumber, "DRIVE"), "DRIVE")
     skepetonizeInput = copy.deepcopy(golden_truth)
     skeletonized = apply_skeletonization(skepetonizeInput)
     imageForDrawing = cv2.merge((skeletonized,skeletonized,skeletonized))
 
     src = cv2.imread(DataPaths.original_image_path(imageNumber))
-    radius = 45
+    radius = 60
 
-    B_channel, G_channel, R_channel = cv2.split(src)
+    _, G_channel, R_channel = cv2.split(src)
+    greenMerged = cv2.merge((G_channel,G_channel,G_channel))
+
     odMiddlePoint = OdLocalization.image_od_localization(G_channel)
     circle_coordinates = CircleCoordinationFinder.listOfCoordinates(radius, x_of_middle=odMiddlePoint[0], y_of_middle=odMiddlePoint[1])
     candidatePoints = CandidatePoints.find_middle_pixels_on_circle(golden_truth, circle_coordinates)
+    # projit vsechny candidate pointy a v cervenem spektru najit jejich rexlex
+    candidatePointCentralReflexes = []
+    for candidatePoint in candidatePoints:
+        candidatePointCentralReflexes.append(R_channel[candidatePoint[1], candidatePoint[0]])
+    maxCentralReflex = max(candidatePointCentralReflexes)
+    minCentralReflex = min(candidatePointCentralReflexes)
+    differenceCentralReflex = maxCentralReflex - minCentralReflex
+    middleCentralReflex = minCentralReflex + (differenceCentralReflex/2)
 
+
+    for index in range(len(candidatePoints)):
+        greenMerged = cv2.circle(greenMerged, (candidatePoints[index][0],candidatePoints[index][1]), radius=2, color=redPixel, thickness=-1)
+    cv2.imshow("temp", greenMerged)
+    cv2.waitKey(0)
 
     allFoundNodesWithAngles = []
     startingPointsOfSegments = []
@@ -205,10 +230,24 @@ def attempt_2():
                 maxAngle = currentAngle + ((math.pi/4)*3)
                 vesselPixels = find_white_vessels_in_neighborhood(currentPoint, minAngle, maxAngle, imageForDrawing)
 
+                if currentPoint[0] == 351 and currentPoint[1] == 202:
+                    print("HERE")
+
+                if currentPoint[0] == 351 and currentPoint[1] == 204:
+                    print("HERE")
+
+                if currentPoint[0] == 286 and currentPoint[1] == 480:
+                    print("HERE")
+                
+                if currentPoint[0] == 287 and currentPoint[1] == 481:
+                    print("HERE")
+                if currentPoint[0] == 327 and currentPoint[1] == 493:
+                    print("HERE")
+
                 if len(vesselPixels) == 0:
                     imageForDrawing[currentPoint[1], currentPoint[0]] = greenPixel
                     if numberOfPointsFound > 2:
-                            startingPointsOfSegments.append([currentNode, nodeAngle])
+                            startingPointsOfSegments.append([currentNode, nodeAngle ])
                     break
 
                 if len(vesselPixels) == 1:
@@ -220,7 +259,11 @@ def attempt_2():
 
                 if len(vesselPixels) > 1:
                     for vesselPixel in vesselPixels:
+                        imageForDrawing[vesselPixel[1], vesselPixel[0]] = greenPixel
                         newNodesWithAngles.append([vesselPixel, get_angle_between_two_points(currentPoint, vesselPixel)])
+                        
+                            
+
                     if numberOfPointsFound > 2:
                             startingPointsOfSegments.append([currentNode, nodeAngle])
                             
@@ -232,12 +275,15 @@ def attempt_2():
         currentNodesWithAngles = newNodesWithAngles
 
     save_and_show_progress(imageForDrawing)
+    
     print(f"Listing all {len(allFoundNodesWithAngles)} nodes")
     print(f"Listing all {len(startingPointsOfSegments)} starts of segments")
     for node, angle in startingPointsOfSegments:
     #    print(f"Node with coordinates {node} and angle {angle}")
         imageForDrawing = cv2.circle(imageForDrawing, (node[0],node[1]), radius=3, color=bluePixel, thickness=-1)
+            
     save_and_show_progress(imageForDrawing)
+    cv2.imwrite(DataPaths.results_image_path("segments"), imageForDrawing)
 
     imageForDrawing = cv2.merge((skeletonized,skeletonized,skeletonized))
 
@@ -245,10 +291,13 @@ def attempt_2():
 
     for node, angle in startingPointsOfSegments:
         choosenColor = random.choice(listOfColors)
+        if node[0] == 287 and node[1] == 481:
+            print("HERE")
         fill_part_of_vessel(node, angle, choosenColor, imageForDrawing)
         
 
     save_and_show_progress(imageForDrawing)
+    cv2.imwrite(DataPaths.results_image_path("segments_color"), imageForDrawing)
 
     imageForDrawing = cv2.merge((golden_truth,golden_truth,golden_truth))
     biggestDistance = 0
@@ -267,7 +316,6 @@ def attempt_2():
     firstBatch = []
     secondBatch = []
     thirdBatch = []
-    radius = int(radius*1.5)
     imageForDrawing = cv2.circle(imageForDrawing, (odMiddlePoint[0],odMiddlePoint[1]), radius=radius, color=(255,255,0), thickness=2)
     for node, angle in startingPointsOfSegments:
         distance = math.dist(node, odMiddlePoint)
@@ -286,6 +334,7 @@ def attempt_2():
         imageForDrawing = cv2.circle(imageForDrawing, (node[0],node[1]), radius=3, color=greenPixel, thickness=-1)
 
     cv2.imshow("distances", imageForDrawing)
+    cv2.imwrite(DataPaths.results_image_path("distances"), imageForDrawing)
     cv2.waitKey(0)
     imageForDrawing = cv2.merge((skeletonized,skeletonized,skeletonized))
     acumulatedOdrs = []
@@ -297,7 +346,7 @@ def attempt_2():
         backgroundlValueRed = 0
         backgroundlValueGreen = 0
         noOfBackground = 0
-        for x in range(node[0]-5,node[0]+5):
+        for x in range(node[0]-10,node[0]+10):
             for y in range(node[1]-5,node[1]+5):
                 if golden_truth[y,x] == 255:
                     noOfVessels += 1
@@ -318,7 +367,7 @@ def attempt_2():
     
     maxOdr = max(acumulatedOdrs)
     minOdr = min(acumulatedOdrs)
-    middleOdr = minOdr + ((maxOdr-minOdr)/2)
+    middleOdr = sum(acumulatedOdrs) / len(acumulatedOdrs)
     
     print(f"Max ord is {maxOdr} min is {minOdr} and middle is {middleOdr}")
     for index in range(len(firstBatch)):
@@ -330,6 +379,7 @@ def attempt_2():
             fill_part_of_vessel(nodeCoordinates, angle, redPixel, imageForDrawing)
             
     cv2.imshow("first batch", imageForDrawing)
+    cv2.imwrite(DataPaths.results_image_path("first_batch"), imageForDrawing)
     cv2.waitKey(0)
 
     acumulatedOdrs = []
@@ -341,7 +391,7 @@ def attempt_2():
         backgroundlValueRed = 0
         backgroundlValueGreen = 0
         noOfBackground = 0
-        for x in range(node[0]-5,node[0]+5):
+        for x in range(node[0]-10,node[0]+10):
             for y in range(node[1]-5,node[1]+5):
                 if golden_truth[y,x] == 255:
                     noOfVessels += 1
@@ -362,7 +412,7 @@ def attempt_2():
     
     maxOdr = max(acumulatedOdrs)
     minOdr = min(acumulatedOdrs)
-    middleOdr = minOdr + ((maxOdr-minOdr)/2)
+    middleOdr = sum(acumulatedOdrs) / len(acumulatedOdrs)
     
     print(f"Max ord is {maxOdr} min is {minOdr} and middle is {middleOdr}")
     for index in range(len(secondBatch)):
@@ -374,6 +424,7 @@ def attempt_2():
             fill_part_of_vessel(nodeCoordinates, angle, redPixel, imageForDrawing)
 
     cv2.imshow("second batch", imageForDrawing)
+    cv2.imwrite(DataPaths.results_image_path("second_batch"), imageForDrawing)
     cv2.waitKey(0)
 
     acumulatedOdrs = []
@@ -385,7 +436,7 @@ def attempt_2():
         backgroundlValueRed = 0
         backgroundlValueGreen = 0
         noOfBackground = 0
-        for x in range(node[0]-5,node[0]+5):
+        for x in range(node[0]-10,node[0]+10):
             for y in range(node[1]-5,node[1]+5):
                 if golden_truth[y,x] == 255:
                     noOfVessels += 1
@@ -406,7 +457,7 @@ def attempt_2():
     
     maxOdr = max(acumulatedOdrs)
     minOdr = min(acumulatedOdrs)
-    middleOdr = minOdr + ((maxOdr-minOdr)/2)
+    middleOdr = sum(acumulatedOdrs) / len(acumulatedOdrs)
     
     print(f"Max ord is {maxOdr} min is {minOdr} and middle is {middleOdr}")
     for index in range(len(thirdBatch)):
@@ -418,7 +469,45 @@ def attempt_2():
             fill_part_of_vessel(nodeCoordinates, angle, redPixel, imageForDrawing)
 
     cv2.imshow("third batch", imageForDrawing)
+    cv2.imwrite(DataPaths.results_image_path("third_batch"), imageForDrawing)
     cv2.waitKey(0)
+
+    finalImage1 = cv2.merge((golden_truth, golden_truth, golden_truth))
+
+    height = len(golden_truth)
+    width = len(golden_truth[0])
+
+    for x in range(width):
+        for y in range(height):
+            actualColor = imageForDrawing[y, x]
+            if are_colors_same(actualColor, redPixel):
+                finalImage1[y, x] = redPixel
+            if are_colors_same(actualColor, bluePixel):
+                finalImage1[y, x] = bluePixel
+                
+    cv2.imshow("final result", finalImage1)
+    cv2.waitKey(0)
+    
+    iterationNumber = 0
+    while True:
+        finalImage2 = copy.deepcopy(finalImage1)
+        iterationNumber += 1
+        changedPixels = 0
+        print(f"iretation number: {iterationNumber}")
+        for x in range(width):
+            for y in range(height):
+                if are_colors_same(finalImage1[y, x], whitePixel):
+                    foundColor = find_colors_in_neighborhood(finalImage1, [x,y])
+                    if not are_colors_same(foundColor, whitePixel):
+                        finalImage2[y,x] = foundColor
+                        changedPixels += 1
+        finalImage1 = finalImage2
+
+        if changedPixels == 0:
+            break
+    cv2.imshow("final result", finalImage1)
+    cv2.waitKey(0)
+    cv2.imwrite(DataPaths.results_image_path("FINAL_RESULT"), finalImage1)
 
     print("END")
 

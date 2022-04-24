@@ -15,9 +15,9 @@ secondaryThreshold = 3
 acumulatedSensitivity = 0.0
 acumulatedSpecificity = 0.0
 acumulatedAccuracy = 0.0
-dataSet = "HRF"
+dataSet = "STARE"
 f = open(os.path.join(DataPaths.results_path(), "RecentResults.txt"), "w")
-for imageNumber in range(1,46):
+for imageNumber in range(1,21):
     print(f"IMAGE NUMBER =>>>> {imageNumber}")
     mask = read_mask_and_erode_it(imageNumber, dataSet)
     preprocessedImage = preprocessing_source_image(imageNumber, dataSet)
@@ -37,6 +37,15 @@ for imageNumber in range(1,46):
     f.write(f"ACC: {imageScore.accuracy * 100}\n")
     f.write(f"SN: {imageScore.sensitivity * 100}\n")
     f.write(f"SP: {imageScore.specificity * 100}\n")
+
+
+    if imageNumber == 11:
+        cv2.imshow("original", manualy_separated)
+        cv2.imshow("result", finalResult)
+        cv2.waitKey(0)
+        cv2.imwrite(DataPaths.results_image_path(f"stare_{imageNumber}_result"),finalResult)
+        cv2.imwrite(DataPaths.results_image_path(f"stare_{imageNumber}_original"),manualy_separated)
+        
     #97.6\% & 43.4\% & 91.06\%\\
     formatedSpecificity = "{:.2f}".format(imageScore.specificity * 100)
     formatedSensitivity = "{:.2f}".format(imageScore.sensitivity * 100)
@@ -48,11 +57,11 @@ for imageNumber in range(1,46):
     acumulatedSpecificity += imageScore.specificity
         
 
-acumulatedAccuracy = acumulatedAccuracy / 45
-acumulatedSensitivity = acumulatedSensitivity / 45
-acumulatedSpecificity = acumulatedSpecificity / 45
+acumulatedAccuracy = acumulatedAccuracy / 20
+acumulatedSensitivity = acumulatedSensitivity / 20
+acumulatedSpecificity = acumulatedSpecificity / 20
 
-print("Averall score")
+print("Overall score")
 print(f"Accuracy => {acumulatedAccuracy}")
 print(f"Sensitivity => {acumulatedSensitivity}")
 print(f"Specificity => {acumulatedSpecificity}")
