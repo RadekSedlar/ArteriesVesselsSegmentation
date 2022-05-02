@@ -43,7 +43,7 @@ class VesselProfile(object):
         gaussMeanSubtractedPlot, = ax.plot(self.x_values, self.gaussMeanSubtracted, label="Hodnoty Gaussova rozdělení po odečtení průměru")
         scatter = ax.scatter(np.arange(len(self.profile)), self.profile, label="Výsledné hodnoty profilu")
         # Create a legend for the first line.
-        first_legend = ax.legend(handles=[gaussianPlot, gaussSubtractedFromMaxPlot, gaussMeanSubtractedPlot,scatter], loc='lower right')
+        first_legend = ax.legend(handles=[gaussianPlot, gaussSubtractedFromMaxPlot, gaussMeanSubtractedPlot,scatter], loc='lower right',  prop={'size': 16})
 
         # Add the legend manually to the Axes.
         ax.add_artist(first_legend)
@@ -54,7 +54,7 @@ class VesselProfile(object):
         gaussianDerivativePlot, = ax.plot(self.x_values, gaussian_secondDerivative(self.x_values, self.mu, self.sig), label="Hodnoty 2. derivace Gaussova rozdělení")
         scatter = ax.scatter(np.arange(len(self.profile)), self.profileSecondDerivative, label="Výsledné hodnoty 2. derivace profilu")
         # Create a legend for the first line.
-        first_legend = ax.legend(handles=[gaussianDerivativePlot, scatter, gaussianPlot], loc='lower right')
+        first_legend = ax.legend(handles=[gaussianDerivativePlot, scatter, gaussianPlot], loc='lower right', prop={'size': 16})
 
         # Add the legend manually to the Axes.
         ax.add_artist(first_legend)

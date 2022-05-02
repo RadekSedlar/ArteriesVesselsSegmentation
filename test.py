@@ -1,5 +1,5 @@
 import math
-import random
+import numpy as np
 import Main
 import copy
 import cv2
@@ -9,6 +9,108 @@ import OdLocalization
 import CircleCoordinationFinder
 import CandidatePoints
 import VesselOrientation
+import statistics
+
+
+import matplotlib.pyplot as plt
+
+from sklearn.cluster import KMeans
+
+def get_odr_for_point(point, angle, G_channel, R_channel, golden_truth):
+    vesselValueRed =  R_channel[point[1],point[0]]
+    vesselValueGreen = G_channel[point[1],point[0]]
+    backgroundlValueRed = get_background_reflex(point, angle, R_channel, golden_truth)
+    backgroundlValueGreen = get_background_reflex(point, angle, G_channel, golden_truth)
+    OdGreen = math.log(vesselValueGreen/backgroundlValueGreen)
+    OdRed = math.log(vesselValueRed/backgroundlValueRed)
+    if OdGreen == 0.0:
+       return OdRed
+    Odr = (OdRed-OdGreen)/OdGreen
+
+    return Odr
+
+def get_my_odr_for_point(point, G_channel, R_channel):
+    vesselValueRed =  R_channel[point[1],point[0]]
+    vesselValueGreen = G_channel[point[1],point[0]]
+    Odr = vesselValueRed - vesselValueGreen
+
+    return Odr
+
+
+def get_vessel_diameter(originPoint, angle, groundTruth):
+    leftAngle = angle + math.pi/2
+    leftVesselEdgePoint = [originPoint[0], originPoint[1]]
+    leftDistance = 0
+    while groundTruth[leftVesselEdgePoint[1], leftVesselEdgePoint[0]] == 255:
+        nextLeftPoint = VesselOrientation.get_point_from_angle_and_distance(leftVesselEdgePoint, leftAngle, 1)
+        leftDistance += 1
+        if nextLeftPoint[0] == leftVesselEdgePoint[0] and nextLeftPoint[1] == leftVesselEdgePoint[1]: # in case that distance 1 generates same point repeat with distance 2
+            nextLeftPoint = VesselOrientation.get_point_from_angle_and_distance(leftVesselEdgePoint, leftAngle, 2)
+
+        if groundTruth[nextLeftPoint[1], nextLeftPoint[0]] == 0:
+            break
+        leftVesselEdgePoint = nextLeftPoint
+
+    rightAngle = angle - math.pi/2
+    rightVesselEdgePoint = [originPoint[0], originPoint[1]]
+    rightDistance = 0
+    while groundTruth[rightVesselEdgePoint[1], rightVesselEdgePoint[0]] == 255:
+        nextRightPoint = VesselOrientation.get_point_from_angle_and_distance(rightVesselEdgePoint, rightAngle, 1)
+        rightDistance += 1
+        if nextRightPoint[0] == rightVesselEdgePoint[0] and nextRightPoint[1] == rightVesselEdgePoint[1]: # in case that distance 1 generates same point repeat with distance 2
+            nextRightPoint = VesselOrientation.get_point_from_angle_and_distance(rightVesselEdgePoint, rightAngle, 2)
+
+        if groundTruth[nextRightPoint[1], nextRightPoint[0]] == 0:
+            break
+        rightVesselEdgePoint = nextRightPoint
+
+    return leftDistance + rightDistance
+
+def get_background_reflex(originPoint, angle, grayscaleImage, groundTruth):
+    leftAngle = angle + math.pi/2
+    leftVesselEdgePoint = [originPoint[0], originPoint[1]]
+    leftDistance = 0
+    while groundTruth[leftVesselEdgePoint[1], leftVesselEdgePoint[0]] == 255:
+        nextLeftPoint = VesselOrientation.get_point_from_angle_and_distance(leftVesselEdgePoint, leftAngle, 1)
+        leftDistance += 1
+        if nextLeftPoint[0] == leftVesselEdgePoint[0] and nextLeftPoint[1] == leftVesselEdgePoint[1]: # in case that distance 1 generates same point repeat with distance 2
+            nextLeftPoint = VesselOrientation.get_point_from_angle_and_distance(leftVesselEdgePoint, leftAngle, 2)
+
+        if groundTruth[nextLeftPoint[1], nextLeftPoint[0]] == 0:
+            break
+        leftVesselEdgePoint = nextLeftPoint
+
+    rightAngle = angle - math.pi/2
+    rightVesselEdgePoint = [originPoint[0], originPoint[1]]
+    rightDistance = 0
+    while groundTruth[rightVesselEdgePoint[1], rightVesselEdgePoint[0]] == 255:
+        nextRightPoint = VesselOrientation.get_point_from_angle_and_distance(rightVesselEdgePoint, rightAngle, 1)
+        rightDistance += 1
+        if nextRightPoint[0] == rightVesselEdgePoint[0] and nextRightPoint[1] == rightVesselEdgePoint[1]: # in case that distance 1 generates same point repeat with distance 2
+            nextRightPoint = VesselOrientation.get_point_from_angle_and_distance(rightVesselEdgePoint, rightAngle, 2)
+
+        if groundTruth[nextRightPoint[1], nextRightPoint[0]] == 0:
+            break
+        rightVesselEdgePoint = nextRightPoint
+
+    leftBackgroundPoint = VesselOrientation.get_point_from_angle_and_distance(originPoint, leftAngle, leftDistance*2)
+    additionalDistance = 1
+    while groundTruth[leftBackgroundPoint[1], leftBackgroundPoint[0]] != 0:
+        leftBackgroundPoint = VesselOrientation.get_point_from_angle_and_distance(originPoint, leftAngle, (leftDistance*2 + additionalDistance))
+        additionalDistance += 1
+    
+    rightBackgroundPoint = VesselOrientation.get_point_from_angle_and_distance(originPoint, rightAngle, rightDistance*2)
+    additionalDistance = 1
+    while groundTruth[rightBackgroundPoint[1], rightBackgroundPoint[0]] != 0:
+        rightBackgroundPoint = VesselOrientation.get_point_from_angle_and_distance(originPoint, rightAngle, (rightDistance*2 + additionalDistance))
+        additionalDistance += 1
+
+    leftBackgroundReflex = grayscaleImage[leftBackgroundPoint[1], leftBackgroundPoint[0]]
+    rightBackgroundReflex = grayscaleImage[rightBackgroundPoint[1], rightBackgroundPoint[0]]
+    #print(f"1 = {leftBackgroundReflex}, 2 = {rightBackgroundReflex}")
+    returningValue = np.mean([leftBackgroundReflex, rightBackgroundReflex])
+    #print(f"returning = {returningValue}")
+    return returningValue
 
 def save_and_show_progress(imageForDrawing):
     cv2.imshow("test",imageForDrawing)
@@ -56,6 +158,8 @@ def find_colors_in_neighborhood(image, currentLocation):
             return bluePixel
         if are_colors_same(image[neighborhood[coordinateIndex][1], neighborhood[coordinateIndex][0]], redPixel):
             return redPixel
+        if are_colors_same(image[neighborhood[coordinateIndex][1], neighborhood[coordinateIndex][0]], greenPixel):
+            return greenPixel
 
     return whitePixel
 
@@ -166,37 +270,242 @@ def fill_part_of_vessel(node, angle, choosenColor, imageForDrawing):
         if len(vesselPixels) > 1:
             break
 
+def find_vessel_root_in_segmented_skeletonized_image(node, angle, skeletonized, segmentedSkeletonized):
+    currentPoint = [node[0], node[1]]
+    currentAngle = angle
+    colorForMarkingPixels = greenPixel
+    while True:
+        
+        minAngle = currentAngle - math.pi/2
+        maxAngle = currentAngle + math.pi/2
+        vesselPixels = find_white_vessels_in_neighborhood(currentPoint, minAngle, maxAngle, skeletonized)
 
-def attempt_2():
-    imageNumber = 2
-    golden_truth = Main.read_mask_image(DataPaths.original_manual_image_path(imageNumber, "DRIVE"), "DRIVE")
+        if len(vesselPixels) == 0:
+            return []
+
+        if len(vesselPixels) == 1:
+            skeletonized[currentPoint[1], currentPoint[0]] = colorForMarkingPixels
+            nextPoint = [vesselPixels[0][0], vesselPixels[0][1]]
+            currentAngle = get_angle_between_two_points(currentPoint, nextPoint)
+            currentPoint = nextPoint
+            if are_colors_same(segmentedSkeletonized[currentPoint[1], currentPoint[0]], whitePixel):
+                return [currentPoint, currentAngle]
+                
+
+        if len(vesselPixels) > 1:
+            return []
+
+
+def calculate_average_value_around_point_in_channel(point, channel):
+    acumulatedValue = channel[point[1], point[0]]
+    neighborhoodPoints = get_neighborhood_coordinates(point, 3, 0, math.pi*2)
+    for neighborhoodPoint in neighborhoodPoints:
+        acumulatedValue += channel[neighborhoodPoint[1], neighborhoodPoint[0]]
+    return (acumulatedValue / 9)
+
+def calculate_average_value_around_points_in_channel(pointsWithAngles, channel):
+    acumulatedValue = 0
+    for point, _ in pointsWithAngles:
+        acumulatedValue += channel[point[1], point[0]]
+        neighborhoodPoints = get_neighborhood_coordinates(point, 3, 0, math.pi*2)
+        for neighborhoodPoint in neighborhoodPoints:
+            acumulatedValue += channel[neighborhoodPoint[1], neighborhoodPoint[0]]
+
+    return acumulatedValue/(len(pointsWithAngles) * 9)
+
+def mean_deviations_of_points(pointsWithAngles, channel):
+    #mean = calculate_average_value_around_points_in_channel(pointsWithAngles, channel)
+
+    #meanDerivations = []
+    #for point, _ in pointsWithAngles:
+    #    meanDerivations.append(abs(calculate_average_value_around_point_in_channel(point, channel) - mean))
+
+    accumulatedValues = [];
+    for point, _ in pointsWithAngles:
+        neighborhoodPointValues = [float(channel[point[1], point[0]])]
+        neighborhoodPoints = get_neighborhood_coordinates(point, 3, 0, math.pi*2)
+        for neighborhoodPoint in neighborhoodPoints:
+            neighborhoodPointValues.append(float(channel[neighborhoodPoint[1], neighborhoodPoint[0]]))
+        accumulatedValues.append(np.mean(np.absolute(neighborhoodPointValues - np.mean(neighborhoodPointValues))))
+    return accumulatedValues
+
+    
+def std_deviations_of_point(point, channel):
+    acumulatedValues = [float(channel[point[1], point[0]])]
+    neighborhoodPoints = get_neighborhood_coordinates(point, 3, 0, math.pi*2)
+    for neighborhoodPoint in neighborhoodPoints:
+        acumulatedValues.append(float(channel[neighborhoodPoint[1], neighborhoodPoint[0]]))
+    return statistics.stdev(acumulatedValues)
+
+def std_deviations_of_points(pointsWithAngles, channel):
+    stdDeviations = []
+    for point, _ in pointsWithAngles:
+        stdDeviations.append(std_deviations_of_point(point, channel))
+    return stdDeviations
+    
+
+def floodfill_vessel(pointOnVessel, skeletonizedImage, color):
+    skeletonizedImage[pointOnVessel[1], pointOnVessel[0]] = color
+    vesselPixelsInNei = find_white_vessels_in_neighborhood(pointOnVessel, 0, math.pi*2, skeletonizedImage)
+
+    pointsStack = []
+    for vesselPixel in vesselPixelsInNei:
+        skeletonizedImage[vesselPixel[1], vesselPixel[0]] = color
+        pointsStack.append(vesselPixel)
+
+    while len(pointsStack) > 0:
+        vesselPixelsInNei = find_white_vessels_in_neighborhood(pointsStack[0], 0, math.pi*2, skeletonizedImage)
+        for vesselPixel in vesselPixelsInNei:
+            skeletonizedImage[vesselPixel[1], vesselPixel[0]] = color
+            pointsStack.append(vesselPixel)
+        pointsStack.remove(pointsStack[0])
+
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
+
+def apply_k_means(segmentedPartsRootPoints, G_channel, src, imageForDrawing, waitAndShow=False):
+    chunkSize = int(len(segmentedPartsRootPoints)/3) + 1
+    firstBatch, secondBatch, thirdBatch = chunks(segmentedPartsRootPoints,chunkSize)
+
+    hsv = cv2.cvtColor(src, cv2.COLOR_BGR2HSV)
+    hue, _, _ = cv2.split(hsv)
+    plot_k_means_results(firstBatch, create_k_means_data(firstBatch, G_channel, hue), imageForDrawing, waitAndShow=waitAndShow)
+    plot_k_means_results(secondBatch, create_k_means_data(secondBatch, G_channel, hue), imageForDrawing, waitAndShow=waitAndShow)
+    plot_k_means_results(thirdBatch, create_k_means_data(thirdBatch, G_channel, hue), imageForDrawing, waitAndShow=waitAndShow)
+
+def apply_ODR(segmentedPartsRootPoints, G_channel, R_channel, golden_truth, imageForDrawing, waitAndShow=False):
+    chunkSize = int(len(segmentedPartsRootPoints)/3) + 1
+    firstBatch, secondBatch, thirdBatch = chunks(segmentedPartsRootPoints,chunkSize)
+
+    #first batch
+    allORDs = []
+    for point, angle in firstBatch:
+        allORDs.append(get_odr_for_point(point,angle, G_channel, R_channel, golden_truth))
+    meanOdr = np.mean(allORDs)
+    for index in range(len(firstBatch)):
+        if allORDs[index] > meanOdr:
+            fill_part_of_vessel(firstBatch[index][0],firstBatch[index][1], bluePixel, imageForDrawing)
+        else:
+            fill_part_of_vessel(firstBatch[index][0],firstBatch[index][1], redPixel, imageForDrawing)
+
+    #second batch
+    allORDs = []
+    for point, angle in secondBatch:
+        allORDs.append(get_odr_for_point(point,angle, G_channel, R_channel, golden_truth))
+    meanOdr = np.mean(allORDs)
+    for index in range(len(secondBatch)):
+        if allORDs[index] > meanOdr:
+            fill_part_of_vessel(secondBatch[index][0],secondBatch[index][1], bluePixel, imageForDrawing)
+        else:
+            fill_part_of_vessel(secondBatch[index][0],secondBatch[index][1], redPixel, imageForDrawing)
+        
+
+    #third batch
+    allORDs = []
+    for point, angle in thirdBatch:
+        allORDs.append(get_odr_for_point(point,angle, G_channel, R_channel, golden_truth))
+    meanOdr = np.mean(allORDs)
+    for index in range(len(thirdBatch)):
+        if allORDs[index] > meanOdr:
+            fill_part_of_vessel(thirdBatch[index][0],thirdBatch[index][1], bluePixel, imageForDrawing)
+        else:
+            fill_part_of_vessel(thirdBatch[index][0],thirdBatch[index][1], redPixel, imageForDrawing)
+
+    if waitAndShow:
+        cv2.imshow("Batch", imageForDrawing)
+    
+
+def plot_k_means_results(pointsWithAngles, kmeansData, imageForDrawing, waitAndShow=False):
+    kmeans = KMeans(
+        init="random",
+        n_clusters=2,
+        n_init=10,
+        max_iter=300,
+        random_state=42)
+
+    kmeans.fit(kmeansData)
+
+    firstCluster = []
+    secondCluster = []
+    firstClusterMiddle = kmeans.cluster_centers_[0]
+    secondClusterMiddle = kmeans.cluster_centers_[1]
+    for data in kmeansData:
+        distanceFromFirst = math.dist(firstClusterMiddle, data)
+        distanceFromSecond= math.dist(secondClusterMiddle, data)
+        if distanceFromFirst <= distanceFromSecond:
+            firstCluster.append(data)
+        else:
+            secondCluster.append(data)
+    
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+
+    firstCluster = np.array(firstCluster)
+    ax.scatter(firstCluster[:,0], firstCluster[:,1], firstCluster[:,2], c="red")
+
+    secondCluster = np.array(secondCluster)
+    ax.scatter(secondCluster[:,0], secondCluster[:,1], secondCluster[:,2], c="blue")
+
+        
+
+    kmeansData = np.array(kmeansData)
+    ax.set_xlabel("MEADE zelené spektrum")
+    ax.set_ylabel("MEADE odstín")
+    ax.set_zlabel("STDE zelené spektrum")
+    ax.scatter(kmeans.cluster_centers_[:, 0], kmeans.cluster_centers_[:, 1], kmeans.cluster_centers_[:, 2], s=300, c='black', marker="P")
+    
+
+    if waitAndShow:
+        plt.show()
+
+    
+    for index in range(len(pointsWithAngles)):
+        distanceFromFirst = math.dist(firstClusterMiddle, kmeansData[index])
+        distanceFromSecond= math.dist(secondClusterMiddle, kmeansData[index])
+        if distanceFromFirst <= distanceFromSecond:
+            fill_part_of_vessel(pointsWithAngles[index][0], pointsWithAngles[index][1], bluePixel, imageForDrawing)
+        else:
+            fill_part_of_vessel(pointsWithAngles[index][0], pointsWithAngles[index][1], redPixel, imageForDrawing)
+
+    if waitAndShow:       
+        cv2.imshow("result", imageForDrawing)
+        cv2.waitKey(0)
+    plt.close()
+    
+
+def create_k_means_data(pointsWithAngles, G_channel, hue):
+    greenMeanDerivations = mean_deviations_of_points(pointsWithAngles, G_channel)
+    hueMeanDerivations = mean_deviations_of_points(pointsWithAngles, hue)
+    greenStdDerivations = std_deviations_of_points(pointsWithAngles, G_channel)
+
+    kmeansData = []
+    for index in range(len(pointsWithAngles)):
+        kmeansData.append([greenMeanDerivations[index], hueMeanDerivations[index], greenStdDerivations[index]])
+    return kmeansData
+    
+
+def attempt_2(method, dataset, imageNumber, waitAndShow=False):
+    
+    golden_truth = Main.read_mask_image(DataPaths.original_manual_image_path(imageNumber, dataset), dataset)
     skepetonizeInput = copy.deepcopy(golden_truth)
     skeletonized = apply_skeletonization(skepetonizeInput)
     imageForDrawing = cv2.merge((skeletonized,skeletonized,skeletonized))
 
-    src = cv2.imread(DataPaths.original_image_path(imageNumber))
+    src = cv2.imread(DataPaths.original_image_path(imageNumber, dataset))
     radius = 60
 
     _, G_channel, R_channel = cv2.split(src)
-    greenMerged = cv2.merge((G_channel,G_channel,G_channel))
+    cv2.imwrite(DataPaths.results_image_path("G_channel"), G_channel)
+    cv2.imwrite(DataPaths.results_image_path("R_channel"), R_channel)
 
     odMiddlePoint = OdLocalization.image_od_localization(G_channel)
     circle_coordinates = CircleCoordinationFinder.listOfCoordinates(radius, x_of_middle=odMiddlePoint[0], y_of_middle=odMiddlePoint[1])
     candidatePoints = CandidatePoints.find_middle_pixels_on_circle(golden_truth, circle_coordinates)
-    # projit vsechny candidate pointy a v cervenem spektru najit jejich rexlex
-    candidatePointCentralReflexes = []
-    for candidatePoint in candidatePoints:
-        candidatePointCentralReflexes.append(R_channel[candidatePoint[1], candidatePoint[0]])
-    maxCentralReflex = max(candidatePointCentralReflexes)
-    minCentralReflex = min(candidatePointCentralReflexes)
-    differenceCentralReflex = maxCentralReflex - minCentralReflex
-    middleCentralReflex = minCentralReflex + (differenceCentralReflex/2)
-
-
-    for index in range(len(candidatePoints)):
-        greenMerged = cv2.circle(greenMerged, (candidatePoints[index][0],candidatePoints[index][1]), radius=2, color=redPixel, thickness=-1)
-    cv2.imshow("temp", greenMerged)
-    cv2.waitKey(0)
+    
+    #candidatePoints.sort(key=lambda x: get_odr_for_point(x[0], x[1], G_channel, R_channel, golden_truth))
+    
 
     allFoundNodesWithAngles = []
     startingPointsOfSegments = []
@@ -213,9 +522,9 @@ def attempt_2():
             seekingAngle = CandidatePoints.quadrant_angle(odMiddlePoint, vesselPoint, triangleAngle)
             currentNodesWithAngles.append([vesselPoint, seekingAngle])
             startingPointsOfSegments.append([vesselPoint, seekingAngle])
-            print(f"Point with angle found: {vesselPoint} => {seekingAngle}")
+            #print(f"Point with angle found: {vesselPoint} => {seekingAngle}")
 
-    print("Attempt 2")
+
 
     while len(currentNodesWithAngles) > 0:
         newNodesWithAngles = []
@@ -229,20 +538,7 @@ def attempt_2():
                 minAngle = currentAngle - ((math.pi/4)*3)
                 maxAngle = currentAngle + ((math.pi/4)*3)
                 vesselPixels = find_white_vessels_in_neighborhood(currentPoint, minAngle, maxAngle, imageForDrawing)
-
-                if currentPoint[0] == 351 and currentPoint[1] == 202:
-                    print("HERE")
-
-                if currentPoint[0] == 351 and currentPoint[1] == 204:
-                    print("HERE")
-
-                if currentPoint[0] == 286 and currentPoint[1] == 480:
-                    print("HERE")
                 
-                if currentPoint[0] == 287 and currentPoint[1] == 481:
-                    print("HERE")
-                if currentPoint[0] == 327 and currentPoint[1] == 493:
-                    print("HERE")
 
                 if len(vesselPixels) == 0:
                     imageForDrawing[currentPoint[1], currentPoint[0]] = greenPixel
@@ -273,204 +569,66 @@ def attempt_2():
     
 
         currentNodesWithAngles = newNodesWithAngles
-
-    save_and_show_progress(imageForDrawing)
+    if waitAndShow:
+        save_and_show_progress(imageForDrawing)
     
-    print(f"Listing all {len(allFoundNodesWithAngles)} nodes")
-    print(f"Listing all {len(startingPointsOfSegments)} starts of segments")
     for node, angle in startingPointsOfSegments:
     #    print(f"Node with coordinates {node} and angle {angle}")
         imageForDrawing = cv2.circle(imageForDrawing, (node[0],node[1]), radius=3, color=bluePixel, thickness=-1)
-            
-    save_and_show_progress(imageForDrawing)
-    cv2.imwrite(DataPaths.results_image_path("segments"), imageForDrawing)
+    if waitAndShow:
+        save_and_show_progress(imageForDrawing)
 
-    imageForDrawing = cv2.merge((skeletonized,skeletonized,skeletonized))
-
-    listOfColors = [(255,255,0), (0,255,0), (0,0,255), (255,0,255), (0,255,255), (127,255,0)]
-
+    skeletonizedWithoudBifructations = cv2.merge((skeletonized, skeletonized, skeletonized))
+    skeletonized = cv2.merge((skeletonized, skeletonized, skeletonized))
     for node, angle in startingPointsOfSegments:
-        choosenColor = random.choice(listOfColors)
-        if node[0] == 287 and node[1] == 481:
-            print("HERE")
-        fill_part_of_vessel(node, angle, choosenColor, imageForDrawing)
+        skeletonizedWithoudBifructations = cv2.circle(skeletonizedWithoudBifructations, (node[0],node[1]), radius=5, color=(0,0,0), thickness=-1)
+    cv2.imshow("temp", skeletonizedWithoudBifructations)
+    _, grayscaledSkeletonization, _ = cv2.split(skeletonizedWithoudBifructations)
+    if waitAndShow:
+        cv2.imshow("temp skeletonized", grayscaledSkeletonization)
+        cv2.waitKey(0)
+    cv2.imwrite(DataPaths.results_image_path("new_skeletonized"),grayscaledSkeletonization)
+
+    segmentedPartsRootPoints = []
+    imageForDrawing = copy.deepcopy(skeletonizedWithoudBifructations)
+    for node, angle in allFoundNodesWithAngles:
+        returnedRootPointWithAngle = find_vessel_root_in_segmented_skeletonized_image(node, angle, skeletonized, skeletonizedWithoudBifructations)
+        if len(returnedRootPointWithAngle) > 0:
+            segmentedPartsRootPoints.append(returnedRootPointWithAngle)
+
+    for node, angle in segmentedPartsRootPoints:
+        fill_part_of_vessel(node, angle, redPixel, imageForDrawing)
+        imageForDrawing = cv2.circle(imageForDrawing, (node[0],node[1]), radius=2, color=greenPixel, thickness=-1)
+    
+    print(f"{imageNumber} & {len(allFoundNodesWithAngles)} & {len(startingPointsOfSegments)} & {len(segmentedPartsRootPoints)}  \\\\")
+    if waitAndShow:
+        cv2.imshow("temp skeletonized", imageForDrawing)
+        cv2.waitKey(0)
+    cv2.imwrite(DataPaths.results_image_path("new_root_points"),imageForDrawing)
+    
+
+
+    
+
+    segmentedPartsRootPoints.sort(key=lambda x: get_vessel_diameter(x[0], x[1], golden_truth))
+    
+    
+    
+    imageForDrawing = copy.deepcopy(skeletonized)
+
+    for segmentedPartsRootPoint in segmentedPartsRootPoints:
+        if math.dist(segmentedPartsRootPoint[0], odMiddlePoint) < 20:
+            segmentedPartsRootPoints.remove(segmentedPartsRootPoint)
         
 
-    save_and_show_progress(imageForDrawing)
-    cv2.imwrite(DataPaths.results_image_path("segments_color"), imageForDrawing)
-
-    imageForDrawing = cv2.merge((golden_truth,golden_truth,golden_truth))
-    biggestDistance = 0
-    smallestDistance = 500
-    for node, angle in startingPointsOfSegments:
-        distance = math.dist(node, odMiddlePoint)
-        if distance > biggestDistance:
-            biggestDistance = distance
-        if distance < smallestDistance:
-            smallestDistance = distance
-
-    distancesDifference = biggestDistance - smallestDistance
-    firstThird = int(smallestDistance + (distancesDifference/3))
-    secondThird = int(firstThird + (distancesDifference/3))
-
-    firstBatch = []
-    secondBatch = []
-    thirdBatch = []
-    imageForDrawing = cv2.circle(imageForDrawing, (odMiddlePoint[0],odMiddlePoint[1]), radius=radius, color=(255,255,0), thickness=2)
-    for node, angle in startingPointsOfSegments:
-        distance = math.dist(node, odMiddlePoint)
-        if distance >= radius and distance < firstThird:
-            firstBatch.append([node, angle])
-        if distance >= firstThird and distance < secondThird:
-            secondBatch.append([node, angle])
-        if distance >= secondThird and distance <= biggestDistance:
-            thirdBatch.append([node, angle])
-    
-    for node, angle in firstBatch:
-        imageForDrawing = cv2.circle(imageForDrawing, (node[0],node[1]), radius=3, color=bluePixel, thickness=-1)
-    for node, angle in secondBatch:
-        imageForDrawing = cv2.circle(imageForDrawing, (node[0],node[1]), radius=3, color=redPixel, thickness=-1)
-    for node, angle in thirdBatch:
-        imageForDrawing = cv2.circle(imageForDrawing, (node[0],node[1]), radius=3, color=greenPixel, thickness=-1)
-
-    cv2.imshow("distances", imageForDrawing)
-    cv2.imwrite(DataPaths.results_image_path("distances"), imageForDrawing)
-    cv2.waitKey(0)
-    imageForDrawing = cv2.merge((skeletonized,skeletonized,skeletonized))
-    acumulatedOdrs = []
-    for node, angle in firstBatch:
-        
-        vesselValueRed = 0
-        vesselValueGreen = 0
-        noOfVessels = 0
-        backgroundlValueRed = 0
-        backgroundlValueGreen = 0
-        noOfBackground = 0
-        for x in range(node[0]-10,node[0]+10):
-            for y in range(node[1]-5,node[1]+5):
-                if golden_truth[y,x] == 255:
-                    noOfVessels += 1
-                    vesselValueGreen += G_channel[y,x]
-                    vesselValueRed += R_channel[y,x]
-                else:
-                    noOfBackground += 1
-                    backgroundlValueGreen += G_channel[y,x]
-                    backgroundlValueRed += R_channel[y,x]
-        vesselValueRed = vesselValueRed/noOfVessels
-        vesselValueGreen = vesselValueGreen/noOfVessels
-        backgroundlValueRed = backgroundlValueRed/noOfBackground
-        backgroundlValueGreen = backgroundlValueGreen/noOfBackground
-        OdGreen = math.log(vesselValueGreen/backgroundlValueGreen)
-        OdRed = math.log(vesselValueRed/backgroundlValueRed)
-        Odr = (OdRed-OdGreen)/OdGreen
-        acumulatedOdrs.append(Odr)
-    
-    maxOdr = max(acumulatedOdrs)
-    minOdr = min(acumulatedOdrs)
-    middleOdr = sum(acumulatedOdrs) / len(acumulatedOdrs)
-    
-    print(f"Max ord is {maxOdr} min is {minOdr} and middle is {middleOdr}")
-    for index in range(len(firstBatch)):
-        nodeCoordinates, angle = firstBatch[index]
-        currentOdr = acumulatedOdrs[index]
-        if currentOdr <= middleOdr:
-            fill_part_of_vessel(nodeCoordinates, angle, bluePixel, imageForDrawing)
-        else:
-            fill_part_of_vessel(nodeCoordinates, angle, redPixel, imageForDrawing)
-            
-    cv2.imshow("first batch", imageForDrawing)
-    cv2.imwrite(DataPaths.results_image_path("first_batch"), imageForDrawing)
-    cv2.waitKey(0)
-
-    acumulatedOdrs = []
-    for node, angle in secondBatch:
-        
-        vesselValueRed = 0
-        vesselValueGreen = 0
-        noOfVessels = 0
-        backgroundlValueRed = 0
-        backgroundlValueGreen = 0
-        noOfBackground = 0
-        for x in range(node[0]-10,node[0]+10):
-            for y in range(node[1]-5,node[1]+5):
-                if golden_truth[y,x] == 255:
-                    noOfVessels += 1
-                    vesselValueGreen += G_channel[y,x]
-                    vesselValueRed += R_channel[y,x]
-                else:
-                    noOfBackground += 1
-                    backgroundlValueGreen += G_channel[y,x]
-                    backgroundlValueRed += R_channel[y,x]
-        vesselValueRed = vesselValueRed/noOfVessels
-        vesselValueGreen = vesselValueGreen/noOfVessels
-        backgroundlValueRed = backgroundlValueRed/noOfBackground
-        backgroundlValueGreen = backgroundlValueGreen/noOfBackground
-        OdGreen = math.log(vesselValueGreen/backgroundlValueGreen)
-        OdRed = math.log(vesselValueRed/backgroundlValueRed)
-        Odr = (OdRed-OdGreen)/OdGreen
-        acumulatedOdrs.append(Odr)
-    
-    maxOdr = max(acumulatedOdrs)
-    minOdr = min(acumulatedOdrs)
-    middleOdr = sum(acumulatedOdrs) / len(acumulatedOdrs)
-    
-    print(f"Max ord is {maxOdr} min is {minOdr} and middle is {middleOdr}")
-    for index in range(len(secondBatch)):
-        nodeCoordinates, angle = secondBatch[index]
-        currentOdr = acumulatedOdrs[index]
-        if currentOdr <= middleOdr:
-            fill_part_of_vessel(nodeCoordinates, angle, bluePixel, imageForDrawing)
-        else:
-            fill_part_of_vessel(nodeCoordinates, angle, redPixel, imageForDrawing)
-
-    cv2.imshow("second batch", imageForDrawing)
-    cv2.imwrite(DataPaths.results_image_path("second_batch"), imageForDrawing)
-    cv2.waitKey(0)
-
-    acumulatedOdrs = []
-    for node, angle in thirdBatch:
-        
-        vesselValueRed = 0
-        vesselValueGreen = 0
-        noOfVessels = 0
-        backgroundlValueRed = 0
-        backgroundlValueGreen = 0
-        noOfBackground = 0
-        for x in range(node[0]-10,node[0]+10):
-            for y in range(node[1]-5,node[1]+5):
-                if golden_truth[y,x] == 255:
-                    noOfVessels += 1
-                    vesselValueGreen += G_channel[y,x]
-                    vesselValueRed += R_channel[y,x]
-                else:
-                    noOfBackground += 1
-                    backgroundlValueGreen += G_channel[y,x]
-                    backgroundlValueRed += R_channel[y,x]
-        vesselValueRed = vesselValueRed/noOfVessels
-        vesselValueGreen = vesselValueGreen/noOfVessels
-        backgroundlValueRed = backgroundlValueRed/noOfBackground
-        backgroundlValueGreen = backgroundlValueGreen/noOfBackground
-        OdGreen = math.log(vesselValueGreen/backgroundlValueGreen)
-        OdRed = math.log(vesselValueRed/backgroundlValueRed)
-        Odr = (OdRed-OdGreen)/OdGreen
-        acumulatedOdrs.append(Odr)
-    
-    maxOdr = max(acumulatedOdrs)
-    minOdr = min(acumulatedOdrs)
-    middleOdr = sum(acumulatedOdrs) / len(acumulatedOdrs)
-    
-    print(f"Max ord is {maxOdr} min is {minOdr} and middle is {middleOdr}")
-    for index in range(len(thirdBatch)):
-        nodeCoordinates, angle = thirdBatch[index]
-        currentOdr = acumulatedOdrs[index]
-        if currentOdr <= middleOdr:
-            fill_part_of_vessel(nodeCoordinates, angle, bluePixel, imageForDrawing)
-        else:
-            fill_part_of_vessel(nodeCoordinates, angle, redPixel, imageForDrawing)
-
-    cv2.imshow("third batch", imageForDrawing)
-    cv2.imwrite(DataPaths.results_image_path("third_batch"), imageForDrawing)
-    cv2.waitKey(0)
+    # HEEEEEEEEEEEEEEEEEEEEEERE
+    if method == "ODR":
+        apply_ODR(segmentedPartsRootPoints, G_channel, R_channel, golden_truth, imageForDrawing, waitAndShow)
+    elif method == "KMEANS":
+        apply_k_means(segmentedPartsRootPoints, G_channel, src, imageForDrawing, waitAndShow=waitAndShow)
+    else:
+        print(f"Method {method} is not supported")
+        return
 
     finalImage1 = cv2.merge((golden_truth, golden_truth, golden_truth))
 
@@ -484,16 +642,17 @@ def attempt_2():
                 finalImage1[y, x] = redPixel
             if are_colors_same(actualColor, bluePixel):
                 finalImage1[y, x] = bluePixel
-                
-    cv2.imshow("final result", finalImage1)
-    cv2.waitKey(0)
+    if waitAndShow:     
+        cv2.imshow("final result", finalImage1)
+        cv2.waitKey(0)
     
     iterationNumber = 0
     while True:
         finalImage2 = copy.deepcopy(finalImage1)
         iterationNumber += 1
+        if waitAndShow:
+            print(f"iteration number: {iterationNumber}")
         changedPixels = 0
-        print(f"iretation number: {iterationNumber}")
         for x in range(width):
             for y in range(height):
                 if are_colors_same(finalImage1[y, x], whitePixel):
@@ -505,18 +664,30 @@ def attempt_2():
 
         if changedPixels == 0:
             break
-    cv2.imshow("final result", finalImage1)
-    cv2.waitKey(0)
-    cv2.imwrite(DataPaths.results_image_path("FINAL_RESULT"), finalImage1)
+
+    veins = 0
+    arteries = 0
+    notMapped = 0
+    for x in range(width):
+        for y in range(height):
+            if are_colors_same(finalImage1[y, x], whitePixel):
+                notMapped += 1
+            if are_colors_same(finalImage1[y, x], bluePixel):
+                arteries += 1
+            if are_colors_same(finalImage1[y, x], redPixel):
+                veins += 1
+
+    allPixels = veins + arteries + notMapped
+    veinsPercent = "{:.2f}".format((veins/allPixels) * 100)
+    arteriesPercent = "{:.2f}".format((arteries/allPixels) * 100)
+    notMappedPercent = "{:.2f}".format((notMapped/allPixels) * 100)
+    print(f"{imageNumber} & {veinsPercent}\\% & {arteriesPercent}\\%  & {notMappedPercent}\\%  \\\\")
+    if waitAndShow:
+        cv2.imshow("final result", finalImage1)
+        cv2.waitKey(0)
+    cv2.imwrite(DataPaths.results_image_path("FINAL_RESULT_2"), finalImage1)
 
     print("END")
-
-    
-
-
-
-
-
 
 greenPixel = (0,255,0)
 bluePixel = (255,0,0)
@@ -529,4 +700,5 @@ blackPixel = (0,0,0)
 
 
 if __name__ == "__main__":
-   attempt_2()
+    for imageNumber in range(1,2):
+        attempt_2("KMEANS", "DRIVE", imageNumber, False)

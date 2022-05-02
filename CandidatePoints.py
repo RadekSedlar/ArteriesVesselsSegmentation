@@ -41,11 +41,20 @@ def start_from_non_vessel(groundTruth, circlePoints):
 
     @rtype: object
     @returns: Object in middle of @input_list."""
-    while groundTruth[circlePoints[0][1]][circlePoints[0][0]] == 255:
+
+    filteredCirclePoints = []
+    height, width = groundTruth.shape
+    for point in circlePoints:
+        if width > point[0] and height > point[1]:
+            filteredCirclePoints.append(point)
+
+
+    while groundTruth[filteredCirclePoints[0][1]][filteredCirclePoints[0][0]] == 255:
         #print(f"First point is: {circlePoints[0]} with value: {groundTruth[circlePoints[0][1]][circlePoints[0][0]]}")
-        tempPoint = [circlePoints[0][0], circlePoints[0][1]]
-        circlePoints.remove(circlePoints[0])
-        circlePoints.append(tempPoint)
+        tempPoint = [filteredCirclePoints[0][0], filteredCirclePoints[0][1]]
+        filteredCirclePoints.remove(filteredCirclePoints[0])
+        filteredCirclePoints.append(tempPoint)
+    circlePoints = filteredCirclePoints
 
 def generate_next_point(vesselMiddlePoint, currentPoint, angle, possibleMaxDistance):
     distance = 2

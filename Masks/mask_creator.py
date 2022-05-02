@@ -1,9 +1,7 @@
 import cv2
-from numpy.lib.function_base import angle
 import pywt
 import numpy as np;
 from matplotlib import pyplot as plt
-from medpy.filter.smoothing import anisotropic_diffusion
 import os
 import matplotlib
 import scipy.misc
@@ -57,13 +55,32 @@ rows = 5
 ax = []
 
 rotation_angle = 0
-for i in range(12):
-    ax.append( fig.add_subplot(5, 5, i+1) )
-    ax[-1].set_title("Angle: " + str(rotation_angle))
-    rotated_image = rotate_image(kernelFromProfile, rotation_angle)
-    croppedImage = rotated_image[4:-4, 4:-4]
-    plt.imshow(croppedImage)
-    rotation_angle = rotation_angle + 15
+
+ax.append( fig.add_subplot(1, 3, 1) )
+ax[-1].set_title("Angle: " + str(rotation_angle), fontsize=20)
+for label in (ax[-1].get_xticklabels() + ax[-1].get_yticklabels()):
+    label.set_fontsize(16)
+rotated_image = rotate_image(kernelFromProfile, rotation_angle)
+croppedImage = rotated_image[4:-4, 4:-4]
+plt.imshow(croppedImage)
+
+rotation_angle = 15
+ax.append( fig.add_subplot(1, 3, 2) )
+ax[-1].set_title("Angle: " + str(rotation_angle), fontsize=20)
+for label in (ax[-1].get_xticklabels() + ax[-1].get_yticklabels()):
+    label.set_fontsize(16)
+rotated_image = rotate_image(kernelFromProfile, rotation_angle)
+croppedImage = rotated_image[4:-4, 4:-4]
+plt.imshow(croppedImage)
+
+rotation_angle = 90
+ax.append( fig.add_subplot(1, 3, 3) )
+ax[-1].set_title("Angle: " + str(rotation_angle), fontsize=20)
+for label in (ax[-1].get_xticklabels() + ax[-1].get_yticklabels()):
+    label.set_fontsize(16)
+rotated_image = rotate_image(kernelFromProfile, rotation_angle)
+croppedImage = rotated_image[4:-4, 4:-4]
+plt.imshow(croppedImage)
 
 plt.show()  # finally, render the plot
 

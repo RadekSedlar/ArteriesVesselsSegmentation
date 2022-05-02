@@ -1,8 +1,5 @@
-import numpy as np
 import cv2
-import matplotlib.pyplot as plt
 import DataPaths
-import ProfileBenchmark
 import math
 import CircleCoordinationFinder
 import os
