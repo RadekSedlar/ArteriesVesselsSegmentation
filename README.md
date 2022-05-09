@@ -38,4 +38,17 @@ Složka **Data** musí obsahovat alespoň jednu databázi.
 Tento skript má povinné 3 parametry:
 1. **Databáze** - určuje, na kterou databázi budou profily použity. Může nabývat hodnot: `DRIVE`, `STARE`, `HRF`
 2. **Ukládání** - určuje zda se výsledky budou ukládat do složky **Result** nebo budou zahazovány. Může nabývat hodnot: `True`, `False`
-3. **Ukládání** - určuje jak chceme profily vytvořit. Pokud má argument hodnotu `custom`, tak se skript doptá uživatele na parametry. Pokud má argument hodnotu `best`, tak skript použije nejlepší hodnoty, které byly naměřeny.
+3. **Vytvoření profilů** - určuje jak chceme profily vytvořit. Pokud má argument hodnotu `custom`, tak se skript doptá uživatele na parametry. Pokud má argument hodnotu `best`, tak skript použije nejlepší hodnoty, které byly naměřeny.
+
+## Rozlišení cév na žíly a tepny
+**FindArteriesVeins.py** je skript, který použije zadanou metodu pro rozlišení cév na žíly a tepny. 
+Tento skript má povinné 3 parametry:
+1. **Databáze** - určuje, na kterou databázi budou profily použity. Může nabývat hodnot: `DRIVE`, `STARE`
+2. **Ukládání** - určuje zda se výsledky budou ukládat do složky **Result** nebo budou zahazovány. Také má vliv na průběžné ukazování výsledků. Může nabývat hodnot: `True`, `False`
+3. **Typ metody** - určuje jak chceme cévy rozlišovat. Může nabývat dvou hodnot: `ODR`, `KMEANS`
+
+
+## Všechny ostatní skripty
+Další skripty obsahují pomocné funkce pro správnou hlavní funkcionalitu.
+Jsou zde přítomny i skripty, které se již nepoužívají, ale ukazují postupný vývoj a přístup k řešení.
+Například **StareConverter.py** a **stareMaskCreator.py** jsou skripty, které původní data STARE upravují pro další použití.

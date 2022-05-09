@@ -7,14 +7,17 @@ import DataPaths
 from ProfileBenchmark import apply_matched_filtering_on_preprocessed_image, invert_profile, preprocessing_source_image, read_mask_and_erode_it
 from gaussianPlot import VesselProfile
 import sys
+import time
 
 def runScript(dataSet, numberOfImages, saveProgress, vesselProfilePrimary, vesselProfileSecondary, primaryThreshold, secondaryThreshold ):
     acumulatedSensitivity = 0.0
     acumulatedSpecificity = 0.0
     acumulatedAccuracy = 0.0
+    acumulatedTime = 0.0
     f = open(os.path.join(DataPaths.results_path(), "RecentResults.txt"), "w")
     for imageNumber in range(1,(numberOfImages+1)):
         print(f"IMAGE NUMBER =>>>> {imageNumber}")
+        startTime = time.time()
         mask = read_mask_and_erode_it(imageNumber, dataSet)
         preprocessedImage = preprocessing_source_image(imageNumber, dataSet)
         pathToImage = DataPaths.original_manual_image_path(imageNumber, dataSet)
@@ -28,6 +31,7 @@ def runScript(dataSet, numberOfImages, saveProgress, vesselProfilePrimary, vesse
             cv2.imwrite(DataPaths.results_image_path(imageName), finalResult)
         imageScore = ImageScore.ImageScore(finalResult, manualy_separated, mask)
         imageScore.compute_statistics()
+        endTime = time.time()
         imageScore.print_score()
 
         f.write(f"{pathToImage}\n")
@@ -52,16 +56,20 @@ def runScript(dataSet, numberOfImages, saveProgress, vesselProfilePrimary, vesse
         acumulatedAccuracy += imageScore.accuracy
         acumulatedSensitivity += imageScore.sensitivity
         acumulatedSpecificity += imageScore.specificity
+        print(f"Time on this image: {(endTime-startTime)}\n")
+        acumulatedTime += (endTime-startTime)
         
 
-    acumulatedAccuracy = acumulatedAccuracy / 20
-    acumulatedSensitivity = acumulatedSensitivity / 20
-    acumulatedSpecificity = acumulatedSpecificity / 20
+    acumulatedAccuracy = acumulatedAccuracy / numberOfImages
+    acumulatedSensitivity = acumulatedSensitivity / numberOfImages
+    acumulatedSpecificity = acumulatedSpecificity / numberOfImages
+    acumulatedTime = acumulatedTime / numberOfImages
 
     print("Overall score")
     print(f"Accuracy => {acumulatedAccuracy}")
     print(f"Sensitivity => {acumulatedSensitivity}")
     print(f"Specificity => {acumulatedSpecificity}")
+    print(f"time for image => {acumulatedTime}")
 
     f.close()
 

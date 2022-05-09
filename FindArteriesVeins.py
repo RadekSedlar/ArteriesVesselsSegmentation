@@ -10,6 +10,8 @@ import CircleCoordinationFinder
 import CandidatePoints
 import VesselOrientation
 import statistics
+import time
+import sys
 
 
 import matplotlib.pyplot as plt
@@ -490,6 +492,7 @@ def attempt_2(method, dataset, imageNumber, waitAndShow=False):
     
     golden_truth = Main.read_mask_image(DataPaths.original_manual_image_path(imageNumber, dataset), dataset)
     skepetonizeInput = copy.deepcopy(golden_truth)
+    startTime = time.time()
     skeletonized = apply_skeletonization(skepetonizeInput)
     imageForDrawing = cv2.merge((skeletonized,skeletonized,skeletonized))
 
@@ -645,7 +648,7 @@ def attempt_2(method, dataset, imageNumber, waitAndShow=False):
     if waitAndShow:     
         cv2.imshow("final result", finalImage1)
         cv2.waitKey(0)
-    
+    middleTime = time.time()
     iterationNumber = 0
     while True:
         finalImage2 = copy.deepcopy(finalImage1)
@@ -685,8 +688,12 @@ def attempt_2(method, dataset, imageNumber, waitAndShow=False):
     if waitAndShow:
         cv2.imshow("final result", finalImage1)
         cv2.waitKey(0)
+    endTime = time.time()
     cv2.imwrite(DataPaths.results_image_path("FINAL_RESULT_2"), finalImage1)
 
+    print(f"Total time: {(endTime-startTime)}")
+    print(f"Main time: {(middleTime-startTime)}")
+    print(f"Flodd time: {(endTime-middleTime)}")
     print("END")
 
 greenPixel = (0,255,0)
@@ -700,5 +707,37 @@ blackPixel = (0,0,0)
 
 
 if __name__ == "__main__":
-    for imageNumber in range(1,2):
-        attempt_2("KMEANS", "DRIVE", imageNumber, False)
+    args = sys.argv[1:]
+    if len(args) != 3:
+        print(f"Musi byt zadana databaze a zda chceme prubezne vysledky ukladat a jak sestavit profily")
+        exit(0)
+
+    ukladat = bool(args[1])
+
+
+    pocetSnimku = 0
+    dataset = ""
+    if args[0] == "STARE":
+        pocetSnimku = 20
+        dataset = "STARE"
+    elif args[0] == "DRIVE":
+        pocetSnimku = 10
+        dataset = "DRIVE"
+    else:
+        print(f"Databaze {args[0]} neni podporovana")
+        exit(0)
+
+    metoda = ""
+    if args[2] == "KMEANS":
+        metoda = "KMEANS"
+    elif args[2] == "ODR":
+        metoda = "ODR"
+    else:
+        print(f"Argument nemuze byt {args[2]}, musi nabyvat hodnot: KMEANS, ODR")
+        exit(0)
+
+
+
+
+    for imageNumber in range(1,(pocetSnimku+1)):
+        attempt_2(metoda, dataset, imageNumber, ukladat)
